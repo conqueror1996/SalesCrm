@@ -8,7 +8,4 @@ export const prisma =
         log: ['query'],
     });
 
-if (process.env.NODE_ENV !== 'production') {
-    // Force new client generation on file save to pick up new schema
-    globalForPrisma.prisma = new PrismaClient({ log: ['query'] });
-}
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
