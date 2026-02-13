@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "whatsapp": "node --loader ts-node/esm scripts/whatsapp-server.ts",
+    "whatsapp": "ts-node --skip-project scripts/whatsapp-server.ts",
     "indiamart": "ts-node --skip-project scripts/indiamart-sync.ts"
   },
   "dependencies": {
