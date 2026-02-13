@@ -827,45 +827,33 @@ export default function Dashboard() {
                   className={`${styles.leadItem} ${activeLead?.id === lead.id ? styles.active : ''} animate-fade-in`}
                   onClick={() => setActiveLeadId(lead.id)}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+                  <div className={styles.leadNameRow}>
                     <span className={styles.leadName}>{lead.name}</span>
-                    <span style={{
-                      fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
-                      background: gu.leadScore.includes('HOT') ? '#ef4444' : gu.leadScore.includes('WARM') ? '#f59e0b' : gu.leadScore.includes('TIMEPASS') ? '#64748b' : '#3b82f6',
-                      color: 'white',
-                      boxShadow: gu.leadScore.includes('HOT') ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
-                    }}>
-                      {gu.leadScore.split(' ')[0]}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={styles.leadSnippet}>
-                      {lead.lastMessage.content}
-                    </span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap', marginLeft: '6px' }}>
+                    <span style={{ fontSize: '0.7rem' }}>
                       {(() => {
                         const diff = new Date().getTime() - new Date(lead.lastActive).getTime();
                         const hours = Math.floor(diff / (1000 * 60 * 60));
-                        if (hours < 24) return `${hours}h ago`;
-                        return `${Math.floor(hours / 24)}d ago`;
+                        if (hours < 24) return `${hours}h`;
+                        return `${Math.floor(hours / 24)}d`;
                       })()}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {gu.isHighValue && (
-                        <div style={{ fontSize: '0.6rem', color: '#ec4899', fontWeight: 600, background: 'rgba(236, 72, 153, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                          💎 HIGH
-                        </div>
-                      )}
-                      {gu.numericValue && gu.numericValue > 0 && (
-                        <div style={{ fontSize: '0.6rem', color: 'var(--success)', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
-                          {gu.estimatedValue}
-                        </div>
-                      )}
-                    </div>
-                    {lead.unread && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px var(--primary)' }} />}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className={styles.leadSnippet}>
+                      {lead.lastMessage.content}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                    <span className={`${styles.statusBadge} ${gu.leadScore.includes('HOT') ? styles.statusHot : (gu.leadScore.includes('WARM') ? styles.statusNew : '')}`}>
+                      {gu.leadScore.split(' ')[0]}
+                    </span>
+                    {gu.numericValue && gu.numericValue > 0 && (
+                      <span className={styles.statusBadge} style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }}>
+                        ₹{(gu.numericValue / 1000).toFixed(0)}k
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -1325,12 +1313,12 @@ export default function Dashboard() {
                   return (
                     <>
                       {/* PRIMARY LEAD CARD */}
-                      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)', position: 'relative', overflow: 'hidden' }}>
+                      <div className={styles.infoCard}>
                         {guidance.leadScore === 'HOT 🔥' && <div style={{ position: 'absolute', top: 0, right: 0, left: 0, height: 2, background: 'var(--primary)' }} />}
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                           <div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            <div style={{ fontSize: '1.rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                               {guidance.customerType || 'New Contact'}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -1346,7 +1334,7 @@ export default function Dashboard() {
 
                         {/* URGENCY & ALERTS */}
                         {guidance.followUpStatus === 'Urgent' && (
-                          <div className="glass-panel animate-pulse" style={{ padding: '0.8rem', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className={styles.infoCard} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '1.2rem' }}>⏰</span>
                             <div>
                               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--error)' }}>ACTION REQUIRED</div>
@@ -1374,9 +1362,9 @@ export default function Dashboard() {
                         )}
 
                         {/* SERIOUS BUYER SCORE (0-100) */}
-                        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', marginBottom: '1.2rem' }}>
+                        <div className={styles.infoCard} style={{ padding: '0.75rem', marginBottom: '1rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Serious Buyer Score</span>
+                            <span className={styles.cardTitle} style={{ marginBottom: 0 }}>Serious Buyer Score</span>
                             <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'white' }}>{guidance.seriousBuyerScore || 0}/100</span>
                           </div>
                           <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -1388,25 +1376,19 @@ export default function Dashboard() {
                             }} />
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-                            {/* Qualification & Deal Data */}
-                            <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
+                            <span className={styles.statusBadge} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
                               Type: <strong style={{ color: 'white' }}>{guidance.customerType || 'Unknown'}</strong>
                             </span>
-                            <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
+                            <span className={styles.statusBadge} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
                               Est. Val: <strong style={{ color: 'white' }}>{guidance.estimatedValue || '-'}</strong>
                             </span>
-                            {guidance.isHighValue && (
-                              <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(236, 72, 153, 0.2)', color: '#ec4899', fontWeight: 700 }}>
-                                💎 HIGH VALUE
-                              </span>
-                            )}
                           </div>
                         </div>
 
 
 
                         {/* SALES SIGNALS: Pressure & Objections */}
-                        <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', marginBottom: '1.2rem' }}>
+                        <div className={styles.infoCard}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Decision Pressure</span>
                             <span style={{
