@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { signIn, signOut, useSession } from "next-auth/react";
 import styles from '../styles/Home.module.css';
 import { PRODUCTS, Lead, Message, Product } from '../data/mockData';
@@ -11,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 import { QuoteBuilder } from '../components/QuoteBuilder';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
-const WHATSAPP_SERVER_URL = process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'http://localhost:3002';
+const WHATSAPP_SERVER_URL = 'http://localhost:3002';
 
 // SVG Icons for a premium feel
 const Icons = {
@@ -59,6 +60,18 @@ export default function Dashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [showQualificationModal, setShowQualificationModal] = useState(false);
+
+  // Responsive State
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>('list');
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    // Initial check
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -599,14 +612,26 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Welcome, Admin</div>
+          <Link href="/settings" style={{ textDecoration: 'none' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚙️</span> <span style={{ display: isMobile ? 'none' : 'inline' }}>Settings</span>
+            </div>
+          </Link>
           <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--surface-hover)', border: '1px solid var(--glass-border)' }} />
         </div>
       </header>
 
       {/* --- DASHBOARD VIEW --- */}
       {currentView === 'dashboard' && (
-        <div style={{ flex: 1, padding: '2rem', overflowY: 'auto', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+        <div style={{
+          flex: 1,
+          padding: isMobile ? '1rem' : '2rem',
+          overflowY: 'auto',
+          display: isMobile ? 'flex' : 'grid',
+          flexDirection: 'column',
+          gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr',
+          gap: '2rem'
+        }}>
 
           {/* LEFT COLUMN: ACTION PANEL */}
           <div>
@@ -785,7 +810,15 @@ export default function Dashboard() {
       {/* --- CRM VIEW (Original Content) --- */}
       <div style={{ display: currentView === 'crm' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
 
-        <div className={styles.sidebar} style={{ width: '280px', flexShrink: 0, borderRight: '1px solid var(--glass-border)', background: 'rgba(15, 23, 42, 0.6)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div className={styles.sidebar} style={{
+          width: isMobile ? '100%' : '280px',
+          display: (isMobile && mobileView !== 'list') ? 'none' : 'flex',
+          flexShrink: 0,
+          borderRight: '1px solid var(--glass-border)',
+          background: 'rgba(15, 23, 42, 0.6)',
+          flexDirection: 'column',
+          overflowY: 'auto'
+        }}>
           <div className={styles.sidebarHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
               <div style={{ width: '32px', height: '32px', background: 'var(--primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>B</div>
@@ -825,7 +858,10 @@ export default function Dashboard() {
                 <div
                   key={lead.id}
                   className={`${styles.leadItem} ${activeLead?.id === lead.id ? styles.active : ''} animate-fade-in`}
-                  onClick={() => setActiveLeadId(lead.id)}
+                  onClick={() => {
+                    setActiveLeadId(lead.id);
+                    if (isMobile) setMobileView('chat');
+                  }}
                 >
                   <div className={styles.leadNameRow}>
                     <span className={styles.leadName}>{lead.name}</span>
@@ -862,9 +898,24 @@ export default function Dashboard() {
         </div>
 
         {/* Main Content Area */}
-        <div className={styles.chatArea} style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden', background: 'var(--surface)' }}>
+        <div className={styles.chatArea} style={{
+          display: (isMobile && mobileView !== 'chat') ? 'none' : 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          background: 'var(--surface)'
+        }}>
           {/* Top Navbar */}
           <div style={{ height: '48px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', paddingLeft: '1.5rem', background: 'rgba(255,255,255,0.02)', position: 'sticky', top: 0, zIndex: 10 }}>
+            {isMobile && mobileView === 'chat' && (
+              <button
+                onClick={() => setMobileView('list')}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', marginRight: '1rem', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+            )}
             <div style={{ display: 'flex', gap: '2rem' }}>
               <button
                 onClick={() => setViewMode('chat')}
@@ -881,6 +932,15 @@ export default function Dashboard() {
             </div>
 
             <div style={{ marginLeft: 'auto', marginRight: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              {isMobile && mobileView === 'chat' && (
+                <button
+                  onClick={() => setMobileView('info')}
+                  title="View Lead Info"
+                  style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+                >
+                  ℹ️
+                </button>
+              )}
               <button
                 onClick={async () => {
                   const res = await fetch('/api/indiamart/sync');
@@ -1286,8 +1346,24 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className={styles.intelligencePanel} style={{ width: '480px', flexShrink: 0, borderLeft: '1px solid var(--glass-border)', background: 'rgba(15, 23, 42, 0.4)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div className={styles.intelligencePanel} style={{
+          width: isMobile ? '100%' : '480px',
+          flexShrink: 0,
+          borderLeft: '1px solid var(--glass-border)',
+          background: 'rgba(15, 23, 42, 0.4)',
+          display: (isMobile && mobileView !== 'info') ? 'none' : 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto'
+        }}>
           <div className={styles.panelHeader} style={{ padding: '1rem 1.5rem' }}>
+            {isMobile && (
+              <button
+                onClick={() => setMobileView('chat')}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', marginRight: '1rem', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ← Back
+              </button>
+            )}
             {/* Pipeline Summary */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
