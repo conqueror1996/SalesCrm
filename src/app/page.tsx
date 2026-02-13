@@ -1007,7 +1007,7 @@ export default function Dashboard() {
                             console.log('WhatsApp initialization started');
                           } catch (error) {
                             console.error('Failed to connect to WhatsApp server:', error);
-                            alert('Failed to connect to WhatsApp server. Please ensure the WhatsApp server is running (npm run whatsapp).');
+                            alert(`Failed to connect to WhatsApp server at ${WHATSAPP_SERVER_URL}. Please ensure the server is running and the URL is correct.`);
                             setWhatsappStatus(prev => ({ ...prev, initializing: false }));
                           }
                         }}
