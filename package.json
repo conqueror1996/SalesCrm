@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "whatsapp": "ts-node --skip-project scripts/whatsapp-server.ts",
     "indiamart": "ts-node --skip-project scripts/indiamart-sync.ts"
   },
