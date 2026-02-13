@@ -22,10 +22,12 @@ console.log('🔄 Initializing WhatsApp Client...');
 
 const client = new Client({
     authStrategy: new LocalAuth({
-        clientId: 'sales-crm-session'
+        clientId: 'sales-crm-session',
+        dataPath: '/app/.wwebjs_auth' // Use explicit path for Docker volume
     }),
     puppeteer: {
         headless: true,
+        executablePath: '/usr/bin/google-chrome-stable', // Path in Docker
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',

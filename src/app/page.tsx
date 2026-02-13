@@ -12,7 +12,10 @@ import autoTable from 'jspdf-autotable';
 import { QuoteBuilder } from '../components/QuoteBuilder';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
-const WHATSAPP_SERVER_URL = 'http://localhost:3002';
+// WhatsApp Server URL - Smart switch for Dev vs. Prod
+const WHATSAPP_SERVER_URL = process.env.NODE_ENV === 'production'
+  ? (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'https://your-railway-app.up.railway.app')
+  : 'http://localhost:3002';
 
 // SVG Icons for a premium feel
 const Icons = {

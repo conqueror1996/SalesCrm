@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
-const WHATSAPP_SERVER_URL = 'http://localhost:3002';
+// WhatsApp Server URL - Smart switch for Dev vs. Prod
+const WHATSAPP_SERVER_URL = process.env.NODE_ENV === 'production'
+    ? (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'https://your-railway-app.up.railway.app')
+    : 'http://localhost:3002';
 
 export default function SettingsPage() {
     const [whatsappStatus, setWhatsappStatus] = useState<{ connected: boolean, qr: string, initializing: boolean }>({ connected: false, qr: '', initializing: false });
