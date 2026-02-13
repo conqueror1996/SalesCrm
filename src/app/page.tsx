@@ -369,7 +369,7 @@ export default function Dashboard() {
     if (type === 'text') setInputText('');
 
     // Official WhatsApp API Integration
-    if (activeLead.phone) {
+    if (activeLead?.phone) {
       try {
         const payload: any = {
           to: activeLead.phone.replace(/[^0-9]/g, ''),
@@ -898,7 +898,7 @@ export default function Dashboard() {
                   const res = await fetch('/api/indiamart/sync');
                   const data = await res.json();
                   if (data.success) {
-                    handleSendMessage(`[SYSTEM] 🏢 IndiaMART API Sync: Found ${data.count} updates.`, 'text');
+                    alert(`[SYSTEM] 🏢 IndiaMART API Sync: Found ${data.count} updates.`);
                   } else {
                     alert(data.message || "Sync failed. Error: No API Key found in env.");
                   }
