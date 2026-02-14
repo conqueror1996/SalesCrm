@@ -389,6 +389,66 @@ export default function Dashboard() {
     console.log(`[AI] Drafted reply for topic: ${result.topic} (${result.confidence})`);
   };
 
+
+  // Import Agent Logic
+  import { agentBrain, AgentDecision } from '../lib/sales-agent';
+
+  // ... existing imports
+
+  // Agent State
+  const [isAgentActive, setIsAgentActive] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<string>('');
+  const [agentThinking, setAgentThinking] = useState(false);
+
+  // ... existing code ...
+
+  // AGENT BRAIN INTEGRATION
+  useEffect(() => {
+    if (!isAgentActive || !activeLead) return;
+
+    const lastMsg = activeLead.messages[activeLead.messages.length - 1];
+
+    // Only respond if the LAST message is from the client and we haven't already responded
+    // (In a real app, we'd check if the last message ID has been processed)
+    if (lastMsg && lastMsg.sender === 'client' && !agentThinking) {
+
+      const runAgent = async () => {
+        setAgentThinking(true);
+        setAgentStatus('🧠 Analyzing Intent & Emotion...');
+
+        // 1. Think
+        const decision = await agentBrain(activeLead, lastMsg.content);
+
+        // 2. Act
+        if (decision.action === 'REPLY' && decision.response) {
+          setAgentStatus(`💬 Drafting (${decision.detectedLanguage}): ${decision.thoughtProcess}`);
+
+          // Wait for "Human" typing delay
+          setTimeout(() => {
+            setAgentStatus('✍️ Typing...');
+            setTimeout(() => {
+              handleSendMessage(decision.response!, 'text');
+              setAgentStatus('✅ Reply Sent');
+              setAgentThinking(false);
+            }, 2000); // Typing duration
+          }, decision.typingDelayMs); // Thinking/Hesitation delay
+
+        } else if (decision.action === 'ALERT_BOSS') {
+          setAgentStatus('🚨 ALERTING BOSS: High Risk/Value Detected');
+          // Mock Alert
+          alert(decision.thoughtProcess); // In real app, this sends WhatsApp to Boss
+          setIsAgentActive(false); // Auto-pause
+          setAgentThinking(false);
+        } else {
+          setAgentStatus('💤 Standing by...');
+          setAgentThinking(false);
+        }
+      };
+
+      runAgent();
+    }
+  }, [activeLead?.messages, isAgentActive]);
+
   const handleSendMessage = async (content: string, type: string = 'text', mediaUrl?: string) => {
     if (!content.trim() && type === 'text') return;
 
@@ -1188,7 +1248,40 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+
+                        {/* AGENT TOGGLE */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.7rem', color: isAgentActive ? '#10b981' : 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.5px' }}>
+                              {isAgentActive ? '🤖 SALES HERO' : '🤖 AGENT OFF'}
+                            </span>
+                            <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
+                              <input
+                                type="checkbox"
+                                checked={isAgentActive}
+                                onChange={() => setIsAgentActive(!isAgentActive)}
+                                style={{ opacity: 0, width: 0, height: 0 }}
+                              />
+                              <span style={{
+                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                                backgroundColor: isAgentActive ? '#3b82f6' : '#4b5563', borderRadius: '34px', transition: '.3s'
+                              }}></span>
+                              <span style={{
+                                position: 'absolute', content: '""', height: '14px', width: '14px', left: isAgentActive ? '20px' : '2px', bottom: '2px',
+                                backgroundColor: 'white', borderRadius: '50%', transition: '.3s'
+                              }}></span>
+                            </label>
+                          </div>
+                          {isAgentActive && (
+                            <div style={{ fontSize: '0.65rem', color: '#f59e0b', maxWidth: '150px', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                              {agentStatus || 'Standing by...'}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 4px' }}></div>
+
                         {activeLead.phone && (
                           <a
                             href={`https://wa.me/${activeLead.phone.replace(/[^0-9]/g, '')}`}
