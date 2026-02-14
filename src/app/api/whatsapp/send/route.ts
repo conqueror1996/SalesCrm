@@ -10,7 +10,9 @@ export async function POST(req: Request) {
 
         // OPTION 2: Try Local WhatsApp Server first (Best for keeping mobile app)
         try {
-            await axios.post(`${WHATSAPP_SERVER_URL}/send`, { to, message });
+            await axios.post(`${WHATSAPP_SERVER_URL}/send`, { to, message }, {
+                headers: { 'x-api-secret': process.env.API_SECRET || 'urbancrm_secret_key_123' }
+            });
             return NextResponse.json({ success: true, method: 'local' });
         } catch (localError) {
             console.log("Local WhatsApp server not running, falling back to Meta Cloud API...");
