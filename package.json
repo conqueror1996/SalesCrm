@@ -7,8 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate && npx puppeteer browsers install chrome",
-    "whatsapp": "ts-node --skip-project scripts/whatsapp-server.ts",
+    "postinstall": "prisma generate && PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome",
+    "whatsapp": "PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer ts-node --skip-project scripts/whatsapp-server.ts",
     "indiamart": "ts-node --skip-project scripts/indiamart-sync.ts"
   },
   "dependencies": {
