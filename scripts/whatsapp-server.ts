@@ -11,7 +11,7 @@ import cors from 'cors';
 
 const prisma = new PrismaClient();
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: '*', credentials: false }));
 app.use(express.json());
 
 // State for API
