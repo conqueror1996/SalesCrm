@@ -180,14 +180,14 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
             const pitch = `This is our premium ${product.name}, fired at 1200°C. It fits perfectly for your ${requestArea} sqft area.`;
             const priceBreakup = `\nRate: ₹${pricing.rateSqFt}/sqft (approx ₹${pricing.ratePerPc}/pc).\nTransport is extra as per actuals.`;
 
-            if (lang === 'Marathi') reply = `${pitch} Rate: ₹${pricing.rateSqFt}/sqft padel. Hai rate ex-factory ahe (Transport extra). ${requestArea} sqft sathi best rate dila ahe.`;
-            else if (lang === 'Hindi') reply = `${pitch} Aapke ${requestArea} sqft ke liye special rate rahega ₹${pricing.rateSqFt}/sqft. Yeh bina transport ka rate hai. Kya main installation cost bhi jodoon?`;
-            else reply = `${pitch} For your ${requestArea} sqft volume, I can offer a special rate of ₹${pricing.rateSqFt}/sqft (₹${pricing.ratePerPc}/pc).\nNote: Rates are Ex-Factory. Should I schedule a site visit?`;
+            if (lang === 'Marathi') reply = `${pitch} Rate: ₹${pricing.rateSqFt}/sqft padel. Hai rate ex-factory ahe (Transport extra). Tumhala installation (fitters) chi garaj ahe ka?`;
+            else if (lang === 'Hindi') reply = `${pitch} Aapke ${requestArea} sqft ke liye special rate rahega ₹${pricing.rateSqFt}/sqft. Yeh bina transport ka rate hai. Kya aapko installation (mistri) ki bhi zaroorat hai?`;
+            else reply = `${pitch} For your ${requestArea} sqft volume, I can offer a special rate of ₹${pricing.rateSqFt}/sqft (₹${pricing.ratePerPc}/pc).\nNote: Rates are Ex-Factory. Do you require installation assistance with the supply?`;
 
             return {
                 action: 'REPLY',
                 response: reply,
-                thoughtProcess: `Calculated Price for ${requestArea}sqft: ₹${pricing.rateSqFt}/sqft (Margin: ${pricing.margin}). Pitching Value.`,
+                thoughtProcess: `Calculated Price for ${requestArea}sqft: ₹${pricing.rateSqFt}/sqft (Margin: ${pricing.margin}). Asking regarding Installation.`,
                 typingDelayMs: calculateTypingDelay(reply),
                 detectedLanguage: lang
             };
