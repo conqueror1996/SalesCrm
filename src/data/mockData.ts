@@ -22,6 +22,7 @@ export interface Lead {
     id: string;
     name: string;
     phone?: string;
+    product?: string;
     status: 'new' | 'follow_up' | 'closed' | 'lost' | 'archived' | 'dead';
     lastMessage: Message;
     messages: Message[];
