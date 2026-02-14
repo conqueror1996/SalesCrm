@@ -232,7 +232,12 @@ function generateDynamicDraft(lead: Lead, context: any): string {
     // 3. New Lead / Qualification
     if (pipelineStage === 'Lead' || !lead.qualificationStatus || lead.qualificationStatus === 'pending') {
         if (customerType === 'Architect') return `Hi Ar. ${name}, glad to connect. To assist better with the facade design, could you share the project location and approximate cladding area?`;
-        if (customerType === 'Homeowner') return `Hi ${name}, congratulations on your new home! To suggest the best elevation designs, are you looking for a red brick look or something more modern like grey/black?`;
+
+        // Only give the generic homeowner pitch if we really have NO other info
+        if (customerType === 'Homeowner' && lead.messages.length <= 2) {
+            return `Hi ${name}, congratulations on your new home! To suggest the best elevation designs, are you looking for a red brick look or something more modern like grey/black?`;
+        }
+
         return `Hi ${name}, thanks for inquiring. To give you the correct rate card, could you confirm the delivery location?`;
     }
 

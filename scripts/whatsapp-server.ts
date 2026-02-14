@@ -1,4 +1,4 @@
-
+import fs from 'fs';
 // @ts-ignore
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia } = pkg;
@@ -24,11 +24,20 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 let client: any;
 
+
+
 const createClient = () => {
+    const chromePath = '/usr/bin/google-chrome-stable';
+    const hasChrome = isProduction && fs.existsSync(chromePath);
+
+    if (isProduction && !hasChrome) {
+        console.warn(`⚠️ Warning: Chrome not found at ${chromePath}, letting Puppeteer find it...`);
+    }
+
     return new Client({
         authStrategy: new LocalAuth({
             clientId: 'sales-crm-session',
-            dataPath: isProduction ? '/app/.wwebjs_auth' : './.wwebjs_auth'
+            dataPath: './.wwebjs_auth' // Use relative path for both dev and prod to avoid permission issues
         }),
         puppeteer: {
             headless: true,
@@ -42,7 +51,7 @@ const createClient = () => {
                 // '--single-process', // Disabled for stability on restarts
                 '--disable-gpu'
             ],
-            ...(isProduction ? { executablePath: '/usr/bin/google-chrome-stable' } : {})
+            ...(hasChrome ? { executablePath: chromePath } : {})
         }
     });
 };

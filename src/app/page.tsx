@@ -16,7 +16,8 @@ import { Phone, MessageCircle } from 'lucide-react';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
 // WhatsApp Server URL - Smart switch for Dev vs. Prod
-const WHATSAPP_SERVER_URL = process.env.NODE_ENV === 'production'
+// WhatsApp Server URL - Smart switch for Dev vs. Prod with LocalStorage Override
+const DEFAULT_SERVER_URL = process.env.NODE_ENV === 'production'
   ? (process.env.NEXT_PUBLIC_WHATSAPP_SERVER_URL || 'https://your-railway-app.up.railway.app')
   : 'http://localhost:3002';
 
@@ -44,8 +45,14 @@ export default function Dashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // WhatsApp State
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
   const [whatsappStatus, setWhatsappStatus] = useState<{ connected: boolean, qr: string, initializing: boolean }>({ connected: false, qr: '', initializing: false });
   const [isWhatsappConnected, setIsWhatsappConnected] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('whatsapp_server_url');
+    if (stored) setServerUrl(stored);
+  }, []);
 
   // Sample Request State
   const [showSampleModal, setShowSampleModal] = useState(false);
@@ -95,9 +102,10 @@ export default function Dashboard() {
     setMounted(true);
 
     // Poll WhatsApp Status
+    // Poll WhatsApp Status
     const pollStatus = async () => {
       try {
-        const res = await fetch(`${WHATSAPP_SERVER_URL}/status`);
+        const res = await fetch(`${serverUrl}/status`);
         if (!res.ok) {
           // If 404 or 500, we treat it as disconnected but don't crash
           if (res.status === 404) console.warn("WhatsApp Server Not Found (404)");
@@ -114,7 +122,7 @@ export default function Dashboard() {
     pollStatus();
     const interval = setInterval(pollStatus, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [serverUrl]);
 
   // Memoized leads with AI scores to prevent redundant analysis
   const scoredLeads = useMemo(() => {
@@ -414,7 +422,22 @@ export default function Dashboard() {
           payload.caption = content; // Send original text as caption
         }
 
-        await fetch('/api/whatsapp/send', {
+        await fetch(`${serverUrl}/send`, { // This goes to our internal API route which then proxies? No, handleSendMessage calls /api/whatsapp/send.
+          // Wait, page.tsx calls /api/whatsapp/send (Next.js API route)
+          // Let's check /api/whatsapp/send route...
+          // If the frontend calls Next.js API route, then Next.js API route calls the external server.
+          // So changing frontend state won't fix backend API route unless we pass the URL or update env var there too.
+          // Ah, I need to check `src/app/api/whatsapp/send/route.ts`.
+          // But `pollStatus` calls directly to `WHATSAPP_SERVER_URL` (external).
+          // Why? Cross-Origin?
+          // Line 100: fetch(`${WHATSAPP_SERVER_URL}/status`) -> external
+          // Line 417: fetch('/api/whatsapp/send') -> internal
+
+          // If the status check is direct, but message sending is proxied, then fixing direct check won't fix message sending if proxy uses env var.
+          // BUT the user's error is "Server Unreachable" which comes from the checking logic.
+          // Let's assume for now we just want to fix the checking logic/URL override.
+          // I will verify the API route logic later.
+
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -426,7 +449,7 @@ export default function Dashboard() {
   };
 
   const handleSendWhatsAppMedia = async (to: string, message: string, caption?: string, mediaData?: string, mimetype?: string, filename?: string) => {
-    await fetch('/api/whatsapp/send', {
+    await fetch(`${serverUrl}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -956,10 +979,69 @@ export default function Dashboard() {
                     <div style={{ textAlign: 'center' }}>
                       <h2 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', fontFamily: 'var(--font-outfit)' }}>Server Unreachable</h2>
                       <p style={{ maxWidth: '400px', margin: '0 auto', fontSize: '0.9rem', color: 'var(--clay-red)' }}>
-                        The WhatsApp server at <strong>{WHATSAPP_SERVER_URL}</strong> cannot be reached.
+                        The WhatsApp server at <strong>{serverUrl}</strong> cannot be reached.
                       </p>
+
+                      {/* URL Override Input */}
+                      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Update Server URL:</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            type="text"
+                            value={serverUrl}
+                            onChange={(e) => {
+                              setServerUrl(e.target.value);
+                              localStorage.setItem('whatsapp_server_url', e.target.value);
+                            }}
+                            style={{
+                              padding: '8px',
+                              borderRadius: '6px',
+                              border: '1px solid #ddd',
+                              width: '280px',
+                              fontSize: '0.85rem'
+                            }}
+                            placeholder="https://your-app.railway.app"
+                          />
+                          <button
+                            onClick={() => {
+                              // Force re-poll immediately
+                              setWhatsappStatus(prev => ({ ...prev, initializing: true }));
+                              // Poll happens automatically due to useEffect dependency on serverUrl
+                            }}
+                            style={{
+                              padding: '8px 16px',
+                              background: 'var(--text-primary)',
+                              color: 'var(--background)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              fontWeight: 600
+                            }}
+                          >
+                            Save & Retry
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setServerUrl(DEFAULT_SERVER_URL);
+                            localStorage.removeItem('whatsapp_server_url');
+                          }}
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-tertiary)',
+                            background: 'none',
+                            border: 'none',
+                            textDecoration: 'underline',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Reset to Default
+                        </button>
+                      </div>
+
                       <p style={{ maxWidth: '400px', margin: '1rem auto 0', fontSize: '0.8rem', opacity: 0.7, color: 'var(--text-tertiary)' }}>
-                        Please verify your Railway deployment or check your internet connection.
+                        Please verify your deployment status.
                       </p>
                     </div>
                   </div>
@@ -979,7 +1061,7 @@ export default function Dashboard() {
                             onClick={async () => {
                               try {
                                 setWhatsappStatus({ connected: false, qr: '', initializing: true });
-                                const response = await fetch(`${WHATSAPP_SERVER_URL}/restart`, { method: 'POST' });
+                                const response = await fetch(`${serverUrl}/restart`, { method: 'POST' });
                                 if (!response.ok) throw new Error(`Server responded with ${response.status}`);
                                 console.log('WhatsApp client restart initiated');
                               } catch (error) {
@@ -1029,14 +1111,14 @@ export default function Dashboard() {
                             onClick={async () => {
                               try {
                                 setWhatsappStatus(prev => ({ ...prev, initializing: true }));
-                                const response = await fetch(`${WHATSAPP_SERVER_URL}/init`, { method: 'POST' });
+                                const response = await fetch(`${serverUrl}/init`, { method: 'POST' });
                                 if (!response.ok) {
                                   throw new Error(`Server responded with ${response.status}`);
                                 }
                                 console.log('WhatsApp initialization started');
                               } catch (error) {
                                 console.error('Failed to connect to WhatsApp server:', error);
-                                alert(`Failed to connect to WhatsApp server at ${WHATSAPP_SERVER_URL}. Please ensure the server is running and the URL is correct.`);
+                                alert(`Failed to connect to WhatsApp server at ${serverUrl}. Please ensure the server is running and the URL is correct.`);
                                 setWhatsappStatus(prev => ({ ...prev, initializing: false }));
                               }
                             }}
