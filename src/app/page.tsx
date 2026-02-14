@@ -105,7 +105,9 @@ export default function Dashboard() {
     // Poll WhatsApp Status
     const pollStatus = async () => {
       try {
-        const res = await fetch(`${serverUrl}/status`);
+        const res = await fetch(`${serverUrl}/status`, {
+          headers: { 'x-api-secret': 'urbancrm_secret_key_123' } // Add Auth Header
+        });
         if (!res.ok) {
           // If 404 or 500, we treat it as disconnected but don't crash
           if (res.status === 404) console.warn("WhatsApp Server Not Found (404)");
@@ -422,24 +424,12 @@ export default function Dashboard() {
           payload.caption = content; // Send original text as caption
         }
 
-        await fetch(`${serverUrl}/send`, { // This goes to our internal API route which then proxies? No, handleSendMessage calls /api/whatsapp/send.
-          // Wait, page.tsx calls /api/whatsapp/send (Next.js API route)
-          // Let's check /api/whatsapp/send route...
-          // If the frontend calls Next.js API route, then Next.js API route calls the external server.
-          // So changing frontend state won't fix backend API route unless we pass the URL or update env var there too.
-          // Ah, I need to check `src/app/api/whatsapp/send/route.ts`.
-          // But `pollStatus` calls directly to `WHATSAPP_SERVER_URL` (external).
-          // Why? Cross-Origin?
-          // Line 100: fetch(`${WHATSAPP_SERVER_URL}/status`) -> external
-          // Line 417: fetch('/api/whatsapp/send') -> internal
-
-          // If the status check is direct, but message sending is proxied, then fixing direct check won't fix message sending if proxy uses env var.
-          // BUT the user's error is "Server Unreachable" which comes from the checking logic.
-          // Let's assume for now we just want to fix the checking logic/URL override.
-          // I will verify the API route logic later.
-
+        await fetch(`${serverUrl}/send`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-secret': 'urbancrm_secret_key_123'
+          },
           body: JSON.stringify(payload)
         });
       } catch (err) {
@@ -451,7 +441,10 @@ export default function Dashboard() {
   const handleSendWhatsAppMedia = async (to: string, message: string, caption?: string, mediaData?: string, mimetype?: string, filename?: string) => {
     await fetch(`${serverUrl}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-secret': 'urbancrm_secret_key_123'
+      },
       body: JSON.stringify({
         to: to.replace(/[^0-9]/g, ''),
         message,
@@ -1061,7 +1054,10 @@ export default function Dashboard() {
                             onClick={async () => {
                               try {
                                 setWhatsappStatus({ connected: false, qr: '', initializing: true });
-                                const response = await fetch(`${serverUrl}/restart`, { method: 'POST' });
+                                const response = await fetch(`${serverUrl}/restart`, {
+                                  method: 'POST',
+                                  headers: { 'x-api-secret': 'urbancrm_secret_key_123' }
+                                });
                                 if (!response.ok) throw new Error(`Server responded with ${response.status}`);
                                 console.log('WhatsApp client restart initiated');
                               } catch (error) {
@@ -1111,7 +1107,10 @@ export default function Dashboard() {
                             onClick={async () => {
                               try {
                                 setWhatsappStatus(prev => ({ ...prev, initializing: true }));
-                                const response = await fetch(`${serverUrl}/init`, { method: 'POST' });
+                                const response = await fetch(`${serverUrl}/init`, {
+                                  method: 'POST',
+                                  headers: { 'x-api-secret': 'urbancrm_secret_key_123' }
+                                });
                                 if (!response.ok) {
                                   throw new Error(`Server responded with ${response.status}`);
                                 }

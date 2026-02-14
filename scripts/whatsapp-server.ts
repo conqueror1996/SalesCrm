@@ -11,8 +11,47 @@ import cors from 'cors';
 
 const prisma = new PrismaClient();
 const app = express();
-app.use(cors({ origin: '*', credentials: false }));
+
+const ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'https://sales-crm-lemon-beta.vercel.app',
+    process.env.FRONTEND_URL
+].filter((o): o is string => !!o);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`Blocked request from origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
+
 app.use(express.json());
+
+// Security Middleware: API Key Check
+const API_SECRET = process.env.API_SECRET || 'urbancrm_secret_key_123'; // Default fallback for dev, override in prod!
+
+const authenticate = (req: any, res: any, next: any) => {
+    // Allow health check without auth for UptimeRobot
+    if (req.path === '/health') return next();
+
+    const apiKey = req.headers['x-api-secret'];
+    if (!apiKey || apiKey !== API_SECRET) {
+        console.warn(`Unauthorized access attempt from ${req.ip}`);
+        return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
+    }
+    next();
+};
+
+// Apply auth to all routes except health
+app.use((req, res, next) => {
+    if (req.path === '/health') return next();
+    authenticate(req, res, next);
+});
 
 // State for API
 let isConnected = false;
