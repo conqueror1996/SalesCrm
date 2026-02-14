@@ -51,31 +51,31 @@ export interface Lead {
 
 export const PRODUCTS: Product[] = [
     // --- Bricks (Smooth, Textured, Handmade) ---
-    { id: 'b1', name: 'Red Slit Smooth', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Red+Slit+Smooth', purchaseRate: 18, sellingRate: 24, description: 'Smooth finish red terracotta brick' },
-    { id: 'b2', name: 'Deep Umber Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/5C4033/FFFFFF?text=Deep+Umber', purchaseRate: 20, sellingRate: 28 },
-    { id: 'b3', name: 'Deep Red Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Deep+Red', purchaseRate: 22, sellingRate: 30 },
-    { id: 'b4', name: 'Brown Clay Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Brown+Clay', purchaseRate: 19, sellingRate: 26 },
-    { id: 'b5', name: 'Sandblast Face Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Sandblast+Face', purchaseRate: 25, sellingRate: 35 },
-    { id: 'b6', name: 'Sandstone Cream Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/F5DEB3/000000?text=Sandstone+Cream', purchaseRate: 28, sellingRate: 38 },
-    { id: 'b7', name: 'Textured Sandblast Red', category: 'brick', image: 'https://placehold.co/600x400/CD5C5C/FFFFFF?text=Textured+Red', purchaseRate: 24, sellingRate: 32 },
-    { id: 'b8', name: 'Woodbark Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Woodbark', purchaseRate: 30, sellingRate: 40 },
-    { id: 'b9', name: 'Light Grey Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D3D3D3/000000?text=Light+Grey', purchaseRate: 32, sellingRate: 42 },
-    { id: 'b10', name: 'Teracotta Basic Red', category: 'brick', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Basic+Red', purchaseRate: 16, sellingRate: 22 },
-    { id: 'b11', name: 'Classic Rustic Red', category: 'brick', image: 'https://placehold.co/600x400/800000/FFFFFF?text=Rustic+Red', purchaseRate: 26, sellingRate: 36 },
-    { id: 'b12', name: 'Charcoal Blend Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/36454F/FFFFFF?text=Charcoal+Blend', purchaseRate: 40, sellingRate: 55 },
+    { id: 'b1', name: 'Red Slit Smooth', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Red+Slit+Smooth', purchaseRate: 15, sellingRate: 22, description: 'Smooth finish red terracotta brick' }, // ~22/pc
+    { id: 'b2', name: 'Deep Umber Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/5C4033/FFFFFF?text=Deep+Umber', purchaseRate: 14, sellingRate: 21 },
+    { id: 'b3', name: 'Deep Red Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Deep+Red', purchaseRate: 15, sellingRate: 22 },
+    { id: 'b4', name: 'Brown Clay Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Brown+Clay', purchaseRate: 100, sellingRate: 150 }, // ~150/sqft
+    { id: 'b5', name: 'Sandblast Face Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Sandblast+Face', purchaseRate: 18, sellingRate: 25 },
+    { id: 'b6', name: 'Sandstone Cream Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/F5DEB3/000000?text=Sandstone+Cream', purchaseRate: 20, sellingRate: 30 },
+    { id: 'b7', name: 'Textured Sandblast Red', category: 'brick', image: 'https://placehold.co/600x400/CD5C5C/FFFFFF?text=Textured+Red', purchaseRate: 14, sellingRate: 21 },
+    { id: 'b8', name: 'Woodbark Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Woodbark', purchaseRate: 180, sellingRate: 280 }, // ~280/sqft panel
+    { id: 'b9', name: 'Light Grey Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D3D3D3/000000?text=Light+Grey', purchaseRate: 22, sellingRate: 35 },
+    { id: 'b10', name: 'Teracotta Basic Red', category: 'brick', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Basic+Red', purchaseRate: 11, sellingRate: 16 },
+    { id: 'b11', name: 'Classic Rustic Red', category: 'brick', image: 'https://placehold.co/600x400/800000/FFFFFF?text=Rustic+Red', purchaseRate: 18, sellingRate: 26 },
+    { id: 'b12', name: 'Charcoal Blend Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/36454F/FFFFFF?text=Charcoal+Blend', purchaseRate: 30, sellingRate: 45 },
 
     // --- Exposed / Cladding ---
-    { id: 'c1', name: 'Hydraulic Pressed - 10 Holes', category: 'cladding', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Hydraulic+10Holes', purchaseRate: 15, sellingRate: 20 },
+    { id: 'c1', name: 'Hydraulic Pressed - 10 Holes', category: 'cladding', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Hydraulic+10Holes', purchaseRate: 15, sellingRate: 22 },
     { id: 'c2', name: 'Clay Extruded AirBrick 2', category: 'cladding', image: 'https://placehold.co/600x400/CD853F/FFFFFF?text=AirBrick+2', purchaseRate: 25, sellingRate: 35 },
-    { id: 'c3', name: 'Classic Extruded Clay Brick', category: 'cladding', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Classic+Extruded', purchaseRate: 18, sellingRate: 24 },
+    { id: 'c3', name: 'Classic Extruded Clay Brick', category: 'cladding', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Classic+Extruded', purchaseRate: 16, sellingRate: 24 },
 
     // --- Roofing ---
-    { id: 'r1', name: 'Mangalore Roof Tile', category: 'roofing', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Mangalore+Roof', purchaseRate: 35, sellingRate: 45 },
-    { id: 'r2', name: 'Mangalore Roof Tile (Penta)', category: 'roofing', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Mangalore+Penta', purchaseRate: 38, sellingRate: 48 },
-    { id: 'r3', name: 'Clay Roofing Tile', category: 'roofing', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Clay+Roofing', purchaseRate: 30, sellingRate: 40 },
+    { id: 'r1', name: 'Mangalore Roof Tile', category: 'roofing', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Mangalore+Roof', purchaseRate: 35, sellingRate: 50 },
+    { id: 'r2', name: 'Mangalore Roof Tile (Penta)', category: 'roofing', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Mangalore+Penta', purchaseRate: 38, sellingRate: 55 },
+    { id: 'r3', name: 'Clay Roofing Tile', category: 'roofing', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Clay+Roofing', purchaseRate: 28, sellingRate: 40 },
 
     // --- Flooring (Paver) ---
-    { id: 'f1', name: 'Teracotta Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Teracotta+Floor', purchaseRate: 40, sellingRate: 55 },
+    { id: 'f1', name: 'Teracotta Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Teracotta+Floor', purchaseRate: 40, sellingRate: 55 }, // ~55/pc
     { id: 'f2', name: 'Yellow Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Yellow+Floor', purchaseRate: 45, sellingRate: 60 },
     { id: 'f3', name: 'Biege Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/F5F5DC/000000?text=Biege+Floor', purchaseRate: 42, sellingRate: 58 },
     { id: 'f4', name: 'Brown Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Brown+Floor', purchaseRate: 40, sellingRate: 55 },
@@ -83,15 +83,15 @@ export const PRODUCTS: Product[] = [
     { id: 'f6', name: 'Clay Hexagonal Red', category: 'paver', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Red+Hex', purchaseRate: 48, sellingRate: 68 },
 
     // --- Jalis (Breeze Blocks) ---
-    { id: 'j1', name: 'Clay Amber Jaali', category: 'jali', image: 'https://placehold.co/600x400/DEB887/000000?text=Amber+Jaali', purchaseRate: 120, sellingRate: 180 },
-    { id: 'j2', name: 'Clay Camp Jaali', category: 'jali', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Camp+Jaali', purchaseRate: 110, sellingRate: 160 },
-    { id: 'j3', name: 'Clay Cross Jaali', category: 'jali', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Cross+Jaali', purchaseRate: 115, sellingRate: 170 },
-    { id: 'j4', name: 'Clay Edan Jaly', category: 'jali', image: 'https://placehold.co/600x400/CD853F/FFFFFF?text=Edan+Jaly', purchaseRate: 125, sellingRate: 185 },
-    { id: 'j5', name: 'Clay Star Jaali', category: 'jali', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Star+Jaali', purchaseRate: 130, sellingRate: 190 },
-    { id: 'j6', name: 'Orco Clay Jaali', category: 'jali', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Orco+Jaali', purchaseRate: 135, sellingRate: 200 },
-    { id: 'j7', name: 'Clay Sapphire Jaali', category: 'jali', image: 'https://placehold.co/600x400/4682B4/FFFFFF?text=Sapphire+Jaali', purchaseRate: 140, sellingRate: 210 },
-    { id: 'j8', name: 'Topaz Jaali', category: 'jali', image: 'https://placehold.co/600x400/FFD700/000000?text=Topaz+Jaali', purchaseRate: 145, sellingRate: 220 },
-    { id: 'j9', name: 'Window Jaali', category: 'jali', image: 'https://placehold.co/600x400/808080/FFFFFF?text=Window+Jaali', purchaseRate: 100, sellingRate: 150 },
+    { id: 'j1', name: 'Clay Amber Jaali', category: 'jali', image: 'https://placehold.co/600x400/DEB887/000000?text=Amber+Jaali', purchaseRate: 90, sellingRate: 140 }, // ~140/pc
+    { id: 'j2', name: 'Clay Camp Jaali', category: 'jali', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Camp+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j3', name: 'Clay Cross Jaali', category: 'jali', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Cross+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j4', name: 'Clay Edan Jaly', category: 'jali', image: 'https://placehold.co/600x400/CD853F/FFFFFF?text=Edan+Jaly', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j5', name: 'Clay Star Jaali', category: 'jali', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Star+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j6', name: 'Orco Clay Jaali', category: 'jali', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Orco+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j7', name: 'Clay Sapphire Jaali', category: 'jali', image: 'https://placehold.co/600x400/4682B4/FFFFFF?text=Sapphire+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j8', name: 'Topaz Jaali', category: 'jali', image: 'https://placehold.co/600x400/FFD700/000000?text=Topaz+Jaali', purchaseRate: 90, sellingRate: 140 },
+    { id: 'j9', name: 'Square Petals Jaali', category: 'jali', image: 'https://placehold.co/600x400/808080/FFFFFF?text=Square+Petals', purchaseRate: 40, sellingRate: 60 }, // Specific item mentioned at 60/pc
 
     // --- Projects ---
     { id: 'proj1', name: 'Villa Elevation - Hyderabad', category: 'project', image: 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Villa+Project', purchaseRate: 0, sellingRate: 0 },
