@@ -13,6 +13,7 @@ import { QuoteBuilder } from '../components/QuoteBuilder';
 import { Shell } from '../components/layout/Shell';
 import { LeadCard } from '../components/leads/LeadCard';
 import { Phone, MessageCircle } from 'lucide-react';
+import { agentBrain, AgentDecision } from '../lib/sales-agent';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
 // WhatsApp Server URL - Smart switch for Dev vs. Prod
@@ -391,7 +392,7 @@ export default function Dashboard() {
 
 
   // Import Agent Logic
-  import { agentBrain, AgentDecision } from '../lib/sales-agent';
+
 
   // ... existing imports
 
@@ -1225,10 +1226,18 @@ export default function Dashboard() {
                           <button
                             onClick={() => setShowQualificationModal(true)}
                             style={{
-                              background: activeLead.qualificationStatus === 'qualified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.2)',
-                              border: `1px solid ${activeLead.qualificationStatus === 'qualified' ? '#10b981' : '#ef4444'}`,
-                              color: activeLead.qualificationStatus === 'qualified' ? '#10b981' : '#ef4444',
-                              padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer'
+                              background: activeLead.qualificationStatus === 'qualified' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+                              border: `1px solid ${activeLead.qualificationStatus === 'qualified' ? '#10b981' : 'rgba(239, 68, 68, 0.5)'}`,
+                              color: activeLead.qualificationStatus === 'qualified' ? '#10b981' : '#fca5a5',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s'
                             }}
                           >
                             {activeLead.qualificationStatus === 'qualified' ? '✅ Qualified' : '⚠️ Qualify Lead'}
@@ -1251,33 +1260,47 @@ export default function Dashboard() {
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
 
                         {/* AGENT TOGGLE */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1 }}>
                             <span style={{ fontSize: '0.7rem', color: isAgentActive ? '#10b981' : 'var(--text-tertiary)', fontWeight: 700, letterSpacing: '0.5px' }}>
-                              {isAgentActive ? '🤖 SALES HERO' : '🤖 AGENT OFF'}
+                              {isAgentActive ? 'SALES HERO' : 'AGENT OFF'}
                             </span>
-                            <label style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px' }}>
-                              <input
-                                type="checkbox"
-                                checked={isAgentActive}
-                                onChange={() => setIsAgentActive(!isAgentActive)}
-                                style={{ opacity: 0, width: 0, height: 0 }}
-                              />
-                              <span style={{
-                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                                backgroundColor: isAgentActive ? '#3b82f6' : '#4b5563', borderRadius: '34px', transition: '.3s'
-                              }}></span>
-                              <span style={{
-                                position: 'absolute', content: '""', height: '14px', width: '14px', left: isAgentActive ? '20px' : '2px', bottom: '2px',
-                                backgroundColor: 'white', borderRadius: '50%', transition: '.3s'
-                              }}></span>
-                            </label>
+                            {isAgentActive && (
+                              <span style={{ fontSize: '0.6rem', color: '#f59e0b', marginTop: '2px' }}>
+                                {agentStatus === '' ? 'Active' : 'Thinking...'}
+                              </span>
+                            )}
                           </div>
-                          {isAgentActive && (
-                            <div style={{ fontSize: '0.65rem', color: '#f59e0b', maxWidth: '150px', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                              {agentStatus || 'Standing by...'}
+
+                          <label style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={isAgentActive}
+                              onChange={() => setIsAgentActive(!isAgentActive)}
+                              style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                            />
+                            <div style={{
+                              width: '32px',
+                              height: '18px',
+                              backgroundColor: isAgentActive ? '#10b981' : '#4b5563',
+                              borderRadius: '34px',
+                              position: 'relative',
+                              transition: 'background-color 0.3s'
+                            }}>
+                              <div style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '14px',
+                                width: '14px',
+                                left: isAgentActive ? '16px' : '2px',
+                                top: '2px',
+                                backgroundColor: 'white',
+                                borderRadius: '50%',
+                                transition: 'left 0.3s',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                              }}></div>
                             </div>
-                          )}
+                          </label>
                         </div>
 
                         <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 4px' }}></div>
@@ -1545,7 +1568,7 @@ export default function Dashboard() {
                   </button>
                 )}
                 {/* Pipeline Summary */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                   <div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Revenue Pipeline</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--deep-earth)', marginTop: '2px', fontFamily: 'var(--font-outfit)' }}>
@@ -2643,7 +2666,7 @@ export default function Dashboard() {
           }
 
         </div>
-      </Shell>
-    </div>
+      </Shell >
+    </div >
   );
 }

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import fs from 'fs';
 // @ts-ignore
 import pkg from 'whatsapp-web.js';
@@ -358,8 +359,9 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// Removed auto-initialize
-// client.initialize();
+// Auto-initialize client on startup to restore session
+console.log('🔄 Auto-initializing WhatsApp Client...');
+client.initialize();
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
