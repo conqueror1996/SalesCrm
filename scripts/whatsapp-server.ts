@@ -20,115 +20,127 @@ let qrCodeData = '';
 
 console.log('🔄 Initializing WhatsApp Client...');
 
-const client = new Client({
-    authStrategy: new LocalAuth({
-        clientId: 'sales-crm-session',
-        dataPath: '/app/.wwebjs_auth' // Use explicit path for Docker volume
-    }),
-    puppeteer: {
-        headless: true,
-        executablePath: '/usr/bin/google-chrome-stable', // Path in Docker
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
-    }
-});
+const isProduction = process.env.NODE_ENV === 'production';
 
-client.on('qr', async (qr) => {
-    console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP MOBILE APP:');
-    qrcodeTerminal.generate(qr, { small: true });
+let client: any;
 
-    // Generate QR Image Data URI for frontend
-    try {
-        qrCodeData = await QRCode.toDataURL(qr);
-        isConnected = false;
-    } catch (err) {
-        console.error('Error generating QR code', err);
-    }
-});
-
-client.on('ready', () => {
-    console.log('✅ WhatsApp Client is Ready!');
-    isConnected = true;
-    qrCodeData = ''; // Clear QR code on success
-});
-
-client.on('disconnected', (reason) => {
-    console.log('❌ WhatsApp Client Disconnected:', reason);
-    isConnected = false;
-    // Client might need re-initialization here depending on logic, but usually it emits qr again
-});
-
-client.on('message_create', async (msg) => {
-    try {
-        // Ignore status updates
-        if (msg.from === 'status@broadcast') return;
-
-        const contact = await msg.getContact();
-        const chat = await msg.getChat();
-
-        // Extract phone number (remove @c.us)
-        const phoneNumber = contact.number;
-        const name = contact.pushname || contact.name || 'Unknown';
-        const isGroup = chat.isGroup;
-
-        // Skip groups for now (optional)
-        if (isGroup) return;
-
-        console.log(`📩 New Message from ${name} (${phoneNumber}): ${msg.body}`);
-
-        // Determine sender (client vs salesrep)
-        const sender = msg.fromMe ? 'salesrep' : 'client';
-
-        // 1. Find or Create Lead
-        let lead = await prisma.lead.findUnique({
-            where: { phone: phoneNumber } as any
-        });
-
-        if (!lead) {
-            console.log(`🆕 New Lead Detected: ${name}`);
-            lead = await prisma.lead.create({
-                data: {
-                    phone: phoneNumber,
-                    name: name || 'Unknown WhatsApp User', // Ensure name is not null
-                    status: 'new',
-                    source: 'WhatsApp'
-                }
-            } as any); // cast as any because schema might have strict types but we are loosely matching
+const createClient = () => {
+    return new Client({
+        authStrategy: new LocalAuth({
+            clientId: 'sales-crm-session',
+            dataPath: isProduction ? '/app/.wwebjs_auth' : './.wwebjs_auth'
+        }),
+        puppeteer: {
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                // '--single-process', // Disabled for stability on restarts
+                '--disable-gpu'
+            ],
+            ...(isProduction ? { executablePath: '/usr/bin/google-chrome-stable' } : {})
         }
+    });
+};
 
-        // 2. Save Message
-        await (prisma as any).message.create({
-            data: {
-                leadId: lead.id,
-                content: msg.body,
-                sender: sender,
-                whatsappMessageId: msg.id.id,
-                timestamp: new Date(msg.timestamp * 1000)
+const setupEvents = (c: any) => {
+    c.on('qr', async (qr: any) => {
+        console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP MOBILE APP:');
+        qrcodeTerminal.generate(qr, { small: true });
+
+        // Generate QR Image Data URI for frontend
+        try {
+            qrCodeData = await QRCode.toDataURL(qr);
+            isConnected = false;
+        } catch (err) {
+            console.error('Error generating QR code', err);
+        }
+    });
+
+    c.on('ready', () => {
+        console.log('✅ WhatsApp Client is Ready!');
+        isConnected = true;
+        qrCodeData = ''; // Clear QR code on success
+    });
+
+    c.on('disconnected', (reason: any) => {
+        console.log('❌ WhatsApp Client Disconnected:', reason);
+        isConnected = false;
+    });
+
+    c.on('message_create', async (msg: any) => {
+        try {
+            // Ignore status updates
+            if (msg.from === 'status@broadcast') return;
+
+            const contact = await msg.getContact();
+            const chat = await msg.getChat();
+
+            // Extract phone number (remove @c.us)
+            const phoneNumber = contact.number;
+            const name = contact.pushname || contact.name || 'Unknown';
+            const isGroup = chat.isGroup;
+
+            // Skip groups for now (optional)
+            if (isGroup) return;
+
+            console.log(`📩 New Message from ${name} (${phoneNumber}): ${msg.body}`);
+
+            // Determine sender (client vs salesrep)
+            const sender = msg.fromMe ? 'salesrep' : 'client';
+
+            // 1. Find or Create Lead
+            let lead = await prisma.lead.findUnique({
+                where: { phone: phoneNumber } as any
+            });
+
+            if (!lead) {
+                console.log(`🆕 New Lead Detected: ${name}`);
+                lead = await prisma.lead.create({
+                    data: {
+                        phone: phoneNumber,
+                        name: name || 'Unknown WhatsApp User', // Ensure name is not null
+                        status: 'new',
+                        source: 'WhatsApp'
+                    }
+                } as any);
             }
-        });
 
-        // 3. Update Lead timestamp
-        await prisma.lead.update({
-            where: { id: lead.id },
-            data: {
-                updatedAt: new Date(),
-                // If it's a client message, mark as unread or update status
-                ...(sender === 'client' ? { status: 'follow_up' } : {})
-            }
-        });
+            // 2. Save Message
+            await (prisma as any).message.create({
+                data: {
+                    leadId: lead.id,
+                    content: msg.body,
+                    sender: sender,
+                    whatsappMessageId: msg.id.id,
+                    timestamp: new Date(msg.timestamp * 1000)
+                }
+            });
 
-    } catch (error) {
-        console.error('❌ Error handling message:', error);
-    }
-});
+            // 3. Update Lead timestamp
+            await prisma.lead.update({
+                where: { id: lead.id },
+                data: {
+                    updatedAt: new Date(),
+                    ...(sender === 'client' ? { status: 'follow_up' } : {})
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error handling message:', error);
+        }
+    });
+};
+
+// Initialize First Client
+client = createClient();
+setupEvents(client);
+
+
 
 
 // Health check endpoint for Render.com
@@ -178,16 +190,24 @@ app.post('/restart', async (req, res) => {
         console.log('🔄 Restarting WhatsApp Client to generate new QR...');
 
         // Destroy current client
-        await client.destroy();
+        try {
+            if (client) await client.destroy();
+        } catch (e) {
+            console.warn('⚠️ Warning: Client destroy() failed (ignoring):', e);
+        }
+
         isConnected = false;
-        isInitializing = false;
+        isInitializing = true;
         qrCodeData = '';
 
         // Wait a bit for cleanup
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Reinitialize
-        isInitializing = true;
+        // Reinitialize FRESH client
+        client = createClient();
+        setupEvents(client);
+
+        console.log('🔄 Initializing fresh client...');
         await client.initialize();
 
         res.json({ success: true, message: 'Client restarted, new QR code will be generated' });

@@ -45,6 +45,7 @@ export interface Lead {
     estimatedArea?: number;
     workStartDate?: string;
     qualificationStatus?: 'pending' | 'partially_qualified' | 'qualified';
+    guidance?: any; // AIGuidance type (avoiding circular dependency)
 }
 
 export const PRODUCTS: Product[] = [

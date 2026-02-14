@@ -188,6 +188,62 @@ function estimateOrderValue(text: string, type: CustomerType, area?: number): { 
     return { str, val, isHigh };
 }
 
+
+function detectPipelineStage(lead: Lead, text: string): PipelineStage {
+    const lower = text.toLowerCase();
+
+    // 1. Closed/Success
+    if (lead.status === 'closed' || lower.includes('payment done') || lower.includes('booked')) return 'Closed';
+
+    // 2. Negotiation (Must have received a quote and discussing price)
+    const quoteSent = lead.messages.some(m => m.content.toLowerCase().includes('quotation') || m.content.toLowerCase().includes('estimate') || m.content.includes('₹'));
+    if (quoteSent) {
+        if (lower.includes('discount') || lower.includes('rate') || lower.includes('expensive') || lower.includes('budget') || lower.includes('final')) {
+            return 'Negotiation';
+        }
+        // If just quote sent but no specific negotiation text, stay in Quotation
+        return 'Quotation';
+    }
+
+    // 3. Sampling / Interest
+    if (lead.sampleRequest || lower.includes('sample') || lower.includes('photo') || lower.includes('catalog') || lower.includes('images')) {
+        return 'Sampling';
+    }
+
+    // 4. Default Inbound
+    return 'Lead';
+}
+
+function generateDynamicDraft(lead: Lead, context: any): string {
+    const { customerType, pipelineStage, climateStrategy, objectionDetected } = context;
+    const name = lead.name.split(' ')[0] || 'Sir/Ma\'am';
+
+    // 1. Negotiation Phase
+    if (pipelineStage === 'Negotiation') {
+        if (customerType === 'Builder') return `Hi ${name}, for a bulk project like yours, the long-term value of our wirecut bricks far outweighs the small price difference. I can stretch to give you free unloading if we close today.`;
+        return `Hi ${name}, I understand the budget. However, this is a one-time elevation investment. Our bricks ensure zero maintenance for 50 years. Can we proceed?`;
+    }
+
+    // 2. Quotation Followup
+    if (pipelineStage === 'Quotation') {
+        return `Hi ${name}, hope you reviewed the estimate. Since you are in ${climateStrategy.label === 'Coastal/High Rain' ? 'a high rain zone' : 'this area'}, our ${climateStrategy.productFocus} is the perfect technical fit. Shall I block the stock?`;
+    }
+
+    // 3. New Lead / Qualification
+    if (pipelineStage === 'Lead' || !lead.qualificationStatus || lead.qualificationStatus === 'pending') {
+        if (customerType === 'Architect') return `Hi Ar. ${name}, glad to connect. To assist better with the facade design, could you share the project location and approximate cladding area?`;
+        if (customerType === 'Homeowner') return `Hi ${name}, congratulations on your new home! To suggest the best elevation designs, are you looking for a red brick look or something more modern like grey/black?`;
+        return `Hi ${name}, thanks for inquiring. To give you the correct rate card, could you confirm the delivery location?`;
+    }
+
+    // 4. Sampling
+    if (pipelineStage === 'Sampling') {
+        return `Hi ${name}, sharing the latest site photos of our ${climateStrategy.productFocus}. Would you like to see physical samples at your site in ${lead.siteLocation || 'your area'}?`;
+    }
+
+    return `Hi ${name}, how can I help you with your elevation requirements today?`;
+}
+
 // --- MAIN AI ANALYSIS ---
 
 export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
@@ -204,6 +260,7 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
     const ghostStatus = detectGhostingStatus(lead);
     const pressure = detectDecisionPressure(lead);
     const objection = detectObjection(text);
+    const pipelineStage = detectPipelineStage(lead, text);
 
     // 2. Closing Window Logic
     // If sample delivered OR quote sent, AND they are replying -> Good time to close
@@ -308,22 +365,10 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
         });
     }
 
-    // Fallback if no specific trigger
-    if (suggestions.length === 0) {
-        suggestions.push({
-            label: 'Catalog Share',
-            actionType: 'send_photos',
-            description: 'Send latest range'
-        });
-        suggestions.push({
-            label: 'Ask Timing',
-            actionType: 'ask_question',
-            payload: 'When are you planning to start the cladding work?',
-            description: 'Timeline check'
-        });
-    }
+
 
     // Climate Logic (Preserved)
+    // Climate Logic
     const climateStrategy = {
         label: 'Standard',
         advice: 'Focus on durability',
@@ -335,6 +380,24 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
         climateStrategy.productFocus = 'Wirecut Series';
     }
 
+    // Fallback / Smart Draft
+    if (suggestions.length < 3) {
+        // Generate a context-aware smart draft
+        const smartDraft = generateDynamicDraft(lead, {
+            customerType,
+            pipelineStage,
+            climateStrategy,
+            objectionDetected: objection // Correct variable name from scope
+        });
+
+        suggestions.push({
+            label: '✨ AI Smart Draft',
+            actionType: 'custom_reply',
+            payload: smartDraft,
+            description: 'Context-aware auto-reply',
+            tone: 'Professional'
+        });
+    }
 
     return {
         leadScore: seriousScore > 75 ? 'HOT 🔥' : seriousScore > 40 ? 'WARM 🟡' : 'COLD ❄️',
@@ -355,6 +418,7 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
         decisionPressure: pressure,
         closingWindow,
         objectionDetected: objection,
-        climateStrategy
+        climateStrategy,
+        pipelineStage // ADDED THIS
     };
 }
