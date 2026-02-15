@@ -30,6 +30,15 @@ export interface AgentDecision {
     detectedLanguage: 'English' | 'Hindi' | 'Marathi';
 }
 
+function calculateHumanDelay(responseLength: number): number {
+    const CPM = 300; // Characters per minute (approx 5 chars/sec)
+    const baseDelay = 2000; // Minimum "read & think" time
+    const typingTime = (responseLength / 5) * 1000; // 5 chars/sec
+    const jitter = Math.random() * 3000; // 0-3s randomness
+    return baseDelay + typingTime + jitter;
+}
+
+
 // --- PRICING ENGINE ---
 function calculatePrice(product: Product, areaSqFt: number): { rateSqFt: number, ratePerPc: number, total: number, margin: string } {
     let marginPercent = 0.39; // Default < 600 sqft
@@ -211,7 +220,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
                 action: 'REPLY',
                 response: reply,
                 thoughtProcess: 'Detected Price Inquiry -> Missing Area -> Asking Requirement.',
-                typingDelayMs: calculateTypingDelay(reply),
+                typingDelayMs: calculateHumanDelay(reply.length),
                 detectedLanguage: lang
             };
         } else {
@@ -231,7 +240,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
                 action: 'REPLY',
                 response: reply,
                 thoughtProcess: `Calculated Price for ${requestArea}sqft: ₹${pricing.rateSqFt}/sqft. Asking for Pincode for transport.`,
-                typingDelayMs: calculateTypingDelay(reply),
+                typingDelayMs: calculateHumanDelay(reply.length),
                 detectedLanguage: lang
             };
         }
@@ -250,7 +259,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
             action: 'REPLY',
             response: reply,
             thoughtProcess: 'Installation requested. Buying time (30-60mins) to consult.',
-            typingDelayMs: calculateTypingDelay(reply),
+            typingDelayMs: calculateHumanDelay(reply.length),
             detectedLanguage: lang
         };
     }
@@ -264,7 +273,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
             action: 'REPLY',
             response: reply,
             thoughtProcess: 'Shared Office Location (Kharghar). Asked for visit.',
-            typingDelayMs: calculateTypingDelay(reply),
+            typingDelayMs: calculateHumanDelay(reply.length),
             detectedLanguage: lang
         };
     }
@@ -285,7 +294,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
             action: 'REPLY',
             response: reply,
             thoughtProcess: 'Closing on Sample Dispatch. Informed about ₹500 charge and Porter/DTDC delivery.',
-            typingDelayMs: calculateTypingDelay(reply),
+            typingDelayMs: calculateHumanDelay(reply.length),
             detectedLanguage: lang
         };
     }

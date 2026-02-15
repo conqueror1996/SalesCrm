@@ -19,9 +19,10 @@ interface ShellProps {
     whatsappConnected?: boolean;
     currentView: 'dashboard' | 'crm' | 'catalog' | 'settings';
     onViewChange: (view: 'dashboard' | 'crm' | 'catalog' | 'settings') => void;
+    onGenerateReport?: () => void;
 }
 
-export function Shell({ children, whatsappConnected = false, currentView, onViewChange }: ShellProps) {
+export function Shell({ children, whatsappConnected = false, currentView, onViewChange, onGenerateReport }: ShellProps) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     // const pathname = usePathname(); // Not used in SPA mode
 
@@ -76,6 +77,30 @@ export function Shell({ children, whatsappConnected = false, currentView, onView
                         );
                     })}
                 </nav>
+
+                {/* Boss Report Button */}
+                <div style={{ padding: '0 16px', marginTop: '16px' }}>
+                    <button
+                        onClick={onGenerateReport}
+                        className={styles.navItem}
+                        style={{
+                            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            fontWeight: 600,
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        }}
+                    >
+                        <LayoutDashboard size={20} />
+                        Boss Report 📊
+                    </button>
+                </div>
 
                 {/* System Status Footer */}
                 <div className={styles.statusFooter}>

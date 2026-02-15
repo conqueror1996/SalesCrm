@@ -11,7 +11,7 @@ export type PipelineStage = 'Lead' | 'Sampling' | 'Quotation' | 'Negotiation' | 
 
 export type SuggestedAction = {
     label: string;
-    actionType: 'send_photos' | 'send_site_image' | 'send_estimate' | 'ask_question' | 'custom_reply' | 'log_qualification';
+    actionType: 'send_photos' | 'send_site_image' | 'send_estimate' | 'ask_question' | 'custom_reply' | 'log_qualification' | 'share_projects';
     payload?: any;
     tone?: 'Professional' | 'Friendly' | 'Premium' | 'Urgent' | 'Direct';
     description?: string;
@@ -326,18 +326,20 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
             description: 'Mandatory: Site, Type, Area',
             tone: 'Urgent'
         });
-        // Also add conversational probe
-        suggestions.push({
-            label: 'Ask: Project Details',
-            actionType: 'ask_question',
-            payload: 'To suggest the right Series, could you share the project location and approximate elevation area?',
-            description: 'Soft qualify',
-            tone: 'Professional'
+    }
+
+    // A.1 Trust Building (For Architects/Builders)
+    if (customerType === 'Architect' || customerType === 'Builder') {
+        suggestions.unshift({
+            label: '🏆 Share Case Studies',
+            actionType: 'share_projects',
+            description: 'Send premium project references',
+            tone: 'Premium'
         });
     }
 
     // B. Price Defense (Negotiation Control)
-    else if (objection === 'Price') {
+    if (objection === 'Price') {
         summary = 'Price Objection Detected.';
         nextStep = 'Defend Value. Do not discount yet.';
         personaComment = 'Hold the line. They want it, they just want to feel they won the negotiation.';
@@ -366,7 +368,7 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
     }
 
     // C. Ghosting Recovery
-    else if (ghostStatus === 'Risk') {
+    if (ghostStatus === 'Risk') {
         summary = 'Lead is drifting away (48h+ inactive).';
         nextStep = 'Send soft check-in.';
         suggestions.push({

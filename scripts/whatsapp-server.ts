@@ -142,6 +142,9 @@ const setupEvents = (c: any) => {
 
             console.log(`📩 New Message from ${name} (${phoneNumber}): ${msg.body}`);
 
+            // Update Online Status
+            onlineStatus.set(phoneNumber, { isOnline: true, lastSeen: new Date() });
+
             // Determine sender (client vs salesrep)
             const sender = msg.fromMe ? 'salesrep' : 'client';
 
@@ -181,12 +184,42 @@ const setupEvents = (c: any) => {
                     ...(sender === 'client' ? { status: 'follow_up' } : {})
                 }
             });
-
         } catch (error) {
             console.error('❌ Error handling message:', error);
         }
     });
+
+    // 4. Message Read Receipts (Blue Ticks)
+    c.on('message_ack', async (msg: any, ack: any) => {
+        /*
+            ack values:
+            1 = Sent (One Tick)
+            2 = Received (Two Ticks)
+            3 = Read (Blue Ticks)
+        */
+        const statusMap = ['PENDING', 'SENT', 'RECEIVED', 'READ', 'PLAYED'];
+        const status = statusMap[ack] || 'UNKNOWN';
+
+        console.log(`✅ Message Update: ${msg.to} -> ${status}`);
+
+        // In a real app, emit this via Socket.io to frontend
+        // For now, we can update the DB if we stored message IDs
+        if (ack === 3) {
+            // Mark as read in DB if needed (optional)
+        }
+    });
+
+    // 5. User Online/Offline Status
+    c.on('presence_update', (presence: any) => {
+        // presence: { id: { _serialized: '...' }, presences: { ... } }
+        const phone = presence.id.user;
+        console.log(`👤 Presence Update for ${phone}: Online`);
+        onlineStatus.set(phone, { isOnline: true, lastSeen: new Date() });
+    });
 };
+
+// In-memory store for online status (since it's transient)
+const onlineStatus = new Map<string, { isOnline: boolean, lastSeen: Date }>();
 
 // Initialize First Client
 client = createClient();
@@ -287,6 +320,64 @@ app.post('/stop', async (req, res) => {
 
         res.json({ success: true });
     } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to get contact status (Online/Last Seen)
+app.get('/contact/:phone', async (req, res) => {
+    const { phone } = req.params;
+    if (!phone) {
+        res.status(400).json({ error: 'Missing phone number' });
+        return;
+    }
+
+    try {
+        const cleanPhone = phone.replace(/\D/g, '');
+        const status = onlineStatus.get(cleanPhone);
+
+        // Also try to get from WhatsApp directly if connected
+        if (client && isConnected) {
+            try {
+                const contactId = `${cleanPhone}@c.us`;
+                // Some heavy lifting might be needed here to get real-time presence if not cached
+                // For now, return what we have in memory + check if we can get profile pic etc
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        res.json({
+            phone: cleanPhone,
+            isOnline: status?.isOnline || false,
+            lastSeen: status?.lastSeen || null
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to simulate typing (Human-like behavior)
+app.post('/typing', async (req, res) => {
+    const { to } = req.body;
+    if (!to) {
+        res.status(400).json({ error: 'Missing "to" number' });
+        return;
+    }
+
+    if (!isConnected) {
+        res.status(503).json({ error: 'WhatsApp client is not connected' });
+        return;
+    }
+
+    try {
+        const number = to.replace(/\D/g, '') + '@c.us';
+        const chat = await client.getChatById(number);
+        await chat.sendStateTyping();
+        console.log(`✍️  Simulating typing for ${to}`);
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Typing Simulation Error:', error);
         res.status(500).json({ error: error.message });
     }
 });

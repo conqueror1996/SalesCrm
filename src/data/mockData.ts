@@ -152,10 +152,37 @@ export const PRODUCTS: Product[] = [
         description: 'Elegant hexagonal flooring for interiors and courtyards.'
     },
 
-    // --- Projects ---
-    { id: 'proj1', name: 'Villa Elevation - Hyderabad', category: 'project', image: 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Villa+Project', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
-    { id: 'proj2', name: 'Commercial Facade - Blr', category: 'project', image: 'https://placehold.co/600x400/708090/FFFFFF?text=Commercial+Project', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
-    { id: 'proj3', name: 'Farmhouse Design', category: 'project', image: 'https://placehold.co/600x400/556B2F/FFFFFF?text=Farmhouse', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
+    // --- Real Projects Portfolio ---
+    {
+        id: 'proj1',
+        name: 'Bade-Miyan Restaurant, Mumbai',
+        category: 'project',
+        image: 'https://claytile.in/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F22qqjddz%2Fproduction%2F4e956ad012e6ef4bbf65b4dd0910f35fbd9a974b-1920x2560.jpg&w=1920&q=75',
+        purchaseRate: 0,
+        sellingRate: 0,
+        pcsPerSqFt: 0,
+        description: 'Iconic restaurant in Mumbai featuring Exposed Wirecut Bricks and Terracotta Cladding.'
+    },
+    {
+        id: 'proj2',
+        name: 'HITAM Campus, Hyderabad',
+        category: 'project',
+        image: 'https://claytile.in/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F22qqjddz%2Fproduction%2Fcf6b145070a756c0b09bbe7527dbdf51878274bb-2560x1920.jpg&w=1920&q=75',
+        purchaseRate: 0,
+        sellingRate: 0,
+        pcsPerSqFt: 0,
+        description: 'Large-scale institutional project using premium Terracotta Facades for natural cooling.'
+    },
+    {
+        id: 'proj3',
+        name: 'St. Marks Hotel, Bangalore',
+        category: 'project',
+        image: 'https://claytile.in/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F22qqjddz%2Fproduction%2F98273673b4009315f6089a818c7ea1b7a2d6776b-1920x2560.jpg&w=1920&q=75',
+        purchaseRate: 0,
+        sellingRate: 0,
+        pcsPerSqFt: 0,
+        description: 'Luxury hotel facade using intricate Terracotta Jali (Screen Bricks) for a unique light-and-shadow effect.'
+    },
 ];
 
 export const INITIAL_LEADS: Lead[] = [];

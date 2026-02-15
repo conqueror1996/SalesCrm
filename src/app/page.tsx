@@ -9,7 +9,9 @@ import { analyzeContext, analyzeContextWithAI, AIGuidance, SuggestedAction, getG
 import { generateSmartReply, generateSmartDraftWithAI } from '../lib/ai-reply';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { ProjectShowcase } from '../components/ProjectShowcase';
 import { QuoteBuilder } from '../components/QuoteBuilder';
+import { generateBossReport } from '../lib/report-generator';
 import { Shell } from '../components/layout/Shell';
 import { LeadCard } from '../components/leads/LeadCard';
 import { Phone, MessageCircle } from 'lucide-react';
@@ -255,6 +257,34 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  const [contactStatus, setContactStatus] = useState<{ isOnline: boolean, lastSeen: string | null } | null>(null);
+
+  // Poll Contact Status (Online/Offline)
+  useEffect(() => {
+    if (!activeLead?.phone) {
+      setContactStatus(null);
+      return;
+    }
+
+    const fetchStatus = async () => {
+      try {
+        if (!activeLead?.phone) return;
+        const cleanPhone = activeLead.phone.replace(/\D/g, '');
+        const res = await fetch(`${serverUrl}/contact/${cleanPhone}`);
+        if (res.ok) {
+          const data = await res.json();
+          setContactStatus(data);
+        }
+      } catch (e) {
+        console.error('Status poll error', e);
+      }
+    };
+
+    fetchStatus(); // Initial fetch
+    const interval = setInterval(fetchStatus, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, [activeLead?.phone, serverUrl]);
+
   // 2. NIGHT HUNTER: Auto-Responder Logic (DISABLED FOR HUMAN-LIKE BEHAVIOR)
   useEffect(() => {
     // Check for "New" leads that haven't been replied to yet
@@ -457,14 +487,24 @@ export default function Dashboard() {
         if (decision.action === 'REPLY' && decision.response) {
           setAgentStatus(`💬 Drafting (${decision.detectedLanguage}): ${decision.thoughtProcess}`);
 
-          // Wait for "Human" typing delay
+          // Wait for "Human" thinking delay
           setTimeout(() => {
             setAgentStatus('✍️ Typing...');
+
+            // Trigger WhatsApp "Typing..." status
+            if (activeLead?.phone) {
+              fetch(`${serverUrl}/typing`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-secret': 'urbancrm_secret_key_123' },
+                body: JSON.stringify({ to: activeLead.phone })
+              }).catch(err => console.error('Typing indicator failed:', err));
+            }
+
             setTimeout(() => {
               handleSendMessage(decision.response!, 'text');
               setAgentStatus('✅ Reply Sent');
               setAgentThinking(false);
-            }, 2000); // Typing duration
+            }, 2000); // Fixed visual typing duration (could be dynamic too)
           }, decision.typingDelayMs); // Thinking/Hesitation delay
 
         } else if (decision.action === 'ALERT_BOSS') {
@@ -505,31 +545,9 @@ export default function Dashboard() {
 
     if (type === 'text') setInputText('');
 
-    // Save message to database
-    if (activeLead?.id) {
-      try {
-        const res = await fetch('/api/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            leadId: activeLead.id,
-            content: content,
-            sender: 'salesrep',
-            type: type
-          })
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Database Save Error:', res.status, errorText);
-        }
-      } catch (err) {
-        console.error('Database Save Error:', err);
-      }
-    }
-
-    // Official WhatsApp API Integration
+    // 4. Send Message (Logic Split to avoid Duplication)
     if (activeLead?.phone) {
+      // A. Send via WhatsApp (Server handles DB Save)
       try {
         const payload: any = {
           to: activeLead.phone.replace(/[^0-9]/g, ''),
@@ -538,7 +556,7 @@ export default function Dashboard() {
 
         if (type === 'image' && mediaUrl) {
           payload.mediaUrl = mediaUrl;
-          payload.caption = content; // Send original text as caption
+          payload.caption = content;
         }
 
         await fetch(`${serverUrl}/send`, {
@@ -551,6 +569,27 @@ export default function Dashboard() {
         });
       } catch (err) {
         console.error('WhatsApp Send Error:', err);
+        alert('Failed to send WhatsApp message.');
+      }
+    } else {
+      // B. Save manually to DB (Internal / Non-WhatsApp)
+      if (activeLead?.id) {
+        try {
+          const res = await fetch('/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              leadId: activeLead.id,
+              content: content,
+              sender: 'salesrep',
+              type: type
+            })
+          });
+
+          if (!res.ok) console.error('Database Save Error');
+        } catch (err) {
+          console.error('Database Save Error:', err);
+        }
       }
     }
   };
@@ -711,12 +750,22 @@ export default function Dashboard() {
       case 'send_estimate':
         handleSendMessage('QUICK ESTIMATE: \nBased on standard size: ₹55/sqft + GST.\nTransport extra.', 'estimate');
         break;
-      case 'ask_question':
-      case 'custom_reply':
-        // 2. AI Auto-Drafting Implementation
-        if (action.payload) setInputText(action.payload);
+      case 'share_projects':
+        // Scroll to or focus project section, or just send a prompt
+        handleSendMessage('I am sharing some of our recent landmark projects for your reference.', 'text');
+        break;
+      case 'log_qualification':
+        setShowQualificationModal(true);
         break;
     }
+  };
+
+  const handleSendProject = (project: Product) => {
+    handleSendMessage(`Check out our work at ${project.name}. This is a great reference for your project.`, 'image', project.image);
+    // Add a context note
+    setTimeout(() => {
+      handleSendMessage(`The materials used here are similar to what we discussed. Should I share more details about this specific installation?`, 'text');
+    }, 1000);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -732,6 +781,7 @@ export default function Dashboard() {
         whatsappConnected={isWhatsappConnected}
         currentView={currentView as any}
         onViewChange={(view) => setCurrentView(view)}
+        onGenerateReport={() => generateBossReport(scoredLeads)}
       >
         {/* Render content based on currentView */}
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -1380,13 +1430,25 @@ export default function Dashboard() {
                                 backgroundColor: 'white',
                                 borderRadius: '50%',
                                 transition: 'left 0.3s',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
                               }}></div>
                             </div>
                           </label>
                         </div>
 
                         <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 4px' }}></div>
+
+                        {/* ONLINE STATUS INDICATOR */}
+                        {contactStatus && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '8px' }}>
+                            {contactStatus.isOnline ? (
+                              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>● Online</span>
+                            ) : (
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)' }}>
+                                Permission: {contactStatus.lastSeen ? new Date(contactStatus.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Offline'}
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {activeLead.phone && (
                           <a
@@ -1610,6 +1672,27 @@ export default function Dashboard() {
                                     </span>
                                     {gu?.leadScore === 'HOT 🔥' && <span style={{ fontSize: '0.7rem' }}>🔥</span>}
                                   </div>
+
+                                  {/* HEAT METER */}
+                                  {gu?.seriousBuyerScore !== undefined && (
+                                    <div style={{ marginTop: '8px', marginBottom: '4px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                        <span style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Heat Score</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: gu.heatColor === 'red' ? 'var(--clay-red)' : gu.heatColor === 'yellow' ? '#f59e0b' : '#3b82f6' }}>
+                                          {gu.seriousBuyerScore}/100
+                                        </span>
+                                      </div>
+                                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{
+                                          width: `${gu.seriousBuyerScore}%`,
+                                          height: '100%',
+                                          background: gu.heatColor === 'red' ? 'var(--clay-red)' : gu.heatColor === 'yellow' ? '#f59e0b' : '#3b82f6',
+                                          transition: 'width 0.5s ease-out'
+                                        }} />
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {gu?.estimatedValue && (
                                     <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success)' }}>{gu.estimatedValue}</div>
@@ -1805,6 +1888,12 @@ export default function Dashboard() {
                                 </div>
                               )}
 
+                              {/* PROJECT PORTFOLIO QUICK ACTIONS */}
+                              <ProjectShowcase
+                                projects={availableProducts.filter(p => p.category === 'project')}
+                                onSendProject={handleSendProject}
+                              />
+
                               {/* AI COPILOT ACTIONS */}
                               <div style={{ marginBottom: '1.5rem' }}>
                                 <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '1rem', letterSpacing: '0.5px' }}>
@@ -1850,7 +1939,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        </div>
+        </div >
 
         {/* Modern Sample Request Modal */}
         {
@@ -2231,7 +2320,7 @@ export default function Dashboard() {
           )
         }
 
-      </Shell>
-    </div>
+      </Shell >
+    </div >
   );
 }
