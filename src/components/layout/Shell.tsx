@@ -123,9 +123,6 @@ export function Shell({ children, whatsappConnected = false, currentView, onView
                         {navItems.find(item => item.id === currentView)?.name || 'Dashboard'}
                     </h2>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ height: '36px', padding: '0 1rem', borderRadius: '999px', background: 'white', border: '1px solid rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', fontSize: '0.875rem', color: '#888', width: '250px' }}>
-                            Search leads...
-                        </div>
                         <button style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--warm-white)', border: '1px solid rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             🔔
                         </button>

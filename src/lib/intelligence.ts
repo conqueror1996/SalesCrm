@@ -251,6 +251,42 @@ function generateDynamicDraft(lead: Lead, context: any): string {
 
 // --- MAIN AI ANALYSIS ---
 
+/**
+ * AI-Powered Analysis (with fallback to rule-based)
+ * This function attempts to use real AI first, then falls back to rules if AI fails
+ */
+export async function analyzeContextWithAI(lead: Lead, lastMessage: Message): Promise<AIGuidance> {
+    // Try AI first (only in browser/client-side, we'll call the API)
+    if (typeof window !== 'undefined') {
+        try {
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'analyze_lead',
+                    lead,
+                    lastMessage
+                })
+            });
+
+            if (response.ok) {
+                const aiGuidance = await response.json();
+                console.log('✨ AI Analysis:', aiGuidance);
+                return aiGuidance;
+            }
+        } catch (error) {
+            console.warn('AI analysis failed, using rule-based fallback:', error);
+        }
+    }
+
+    // Fallback to rule-based analysis
+    return analyzeContext(lead, lastMessage);
+}
+
+/**
+ * Rule-Based Analysis (Fallback)
+ * Original logic preserved for reliability
+ */
 export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
     const text = lastMessage.content.toLowerCase();
 
@@ -310,8 +346,8 @@ export function analyzeContext(lead: Lead, lastMessage: Message): AIGuidance {
             label: '🛡️ Value Defense',
             actionType: 'custom_reply',
             tone: 'Premium',
-            payload: 'I understand the budget concern. However, unlike standard ₹20 bricks that absorb water and fade, our 1200°C fired clay is a lifetime elevation solution. The generic ones will cost you double in maintenance within 3 years.',
-            description: 'Justify with Quality'
+            payload: 'I understand the budget concern. However, with Urban Clay\'s 30+ years of expertise, you aren\'t just buying bricks. Our clay is fired at 1200°C to reach a massive 60MPa compressive strength—that is 3x stronger than standard market bricks. It ensures zero fading and zero maintenance for a lifetime.',
+            description: 'Justify with Quality & Legacy'
         });
         suggestions.push({
             label: '⏳ Scarcity Push',

@@ -12,6 +12,7 @@ import cors from 'cors';
 
 const prisma = new PrismaClient();
 const app = express();
+import { exec } from 'child_process';
 
 const ALLOWED_ORIGINS = [
     'http://localhost:3000',
@@ -105,6 +106,7 @@ const setupEvents = (c: any) => {
         try {
             qrCodeData = await QRCode.toDataURL(qr);
             isConnected = false;
+            isInitializing = false;
         } catch (err) {
             console.error('Error generating QR code', err);
         }
@@ -113,6 +115,7 @@ const setupEvents = (c: any) => {
     c.on('ready', () => {
         console.log('✅ WhatsApp Client is Ready!');
         isConnected = true;
+        isInitializing = false;
         qrCodeData = ''; // Clear QR code on success
     });
 
@@ -362,6 +365,36 @@ app.post('/send', async (req, res) => {
 // Auto-initialize client on startup to restore session
 console.log('🔄 Auto-initializing WhatsApp Client...');
 client.initialize();
+
+// --- SCHEDULER FOR DAILY REPORTS ---
+const REPORTING_TIME = process.env.REPORTING_TIME || '18:00';
+let lastReportDate = '';
+
+function checkScheduledReports() {
+    const now = new Date();
+    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const todayDate = now.toISOString().split('T')[0];
+
+    if (currentTime === REPORTING_TIME && lastReportDate !== todayDate) {
+        console.log(`⏰ Scheduled Time Reached (${REPORTING_TIME}). Triggering Daily Report...`);
+        lastReportDate = todayDate;
+
+        exec('npm run report', (error, stdout, stderr) => {
+            if (error) {
+                console.error(`❌ Report Error: ${error.message}`);
+                return;
+            }
+            if (stderr) {
+                console.error(`⚠️ Report Stderr: ${stderr}`);
+            }
+            console.log(`✅ Report Output: ${stdout}`);
+        });
+    }
+}
+
+// Check every minute
+setInterval(checkScheduledReports, 60000);
+console.log(`📅 Scheduler active: Will send daily report at ${REPORTING_TIME} to ${process.env.BOSS_PHONE}`);
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {

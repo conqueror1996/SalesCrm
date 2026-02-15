@@ -7,6 +7,34 @@ interface AIResponse {
     confidence: number;
 }
 
+export async function generateSmartDraftWithAI(
+    messageContent: string,
+    customerType: CustomerType = 'Unknown'
+): Promise<AIResponse> {
+    if (typeof window !== 'undefined') {
+        try {
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'generate_smart_reply',
+                    messageContent,
+                    customerType
+                })
+            });
+
+            if (response.ok) {
+                const aiResponse = await response.json();
+                console.log('✨ AI Smart Draft:', aiResponse);
+                return aiResponse;
+            }
+        } catch (error) {
+            console.warn('AI smart reply failed, falling back to rule-based:', error);
+        }
+    }
+    return generateSmartReply(messageContent, customerType);
+}
+
 export function generateSmartReply(
     messageContent: string,
     customerType: CustomerType = 'Unknown'

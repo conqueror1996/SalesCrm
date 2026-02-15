@@ -3,8 +3,9 @@ export interface Product {
     name: string;
     category: 'brick' | 'tile' | 'paver' | 'jali' | 'cladding' | 'roofing' | 'project';
     image: string;
-    purchaseRate: number; // Our cost
-    sellingRate: number; // Base Selling Price
+    purchaseRate: number; // Our cost per piece
+    sellingRate: number; // Base Selling Price per piece
+    pcsPerSqFt: number; // How many units cover 1 sqft
     description?: string;
     dimensions?: string;
 }
@@ -50,53 +51,111 @@ export interface Lead {
 }
 
 export const PRODUCTS: Product[] = [
-    // --- Bricks (Smooth, Textured, Handmade) ---
-    { id: 'b1', name: 'Red Slit Smooth', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Red+Slit+Smooth', purchaseRate: 15, sellingRate: 22, description: 'Smooth finish red terracotta brick' }, // ~22/pc
-    { id: 'b2', name: 'Deep Umber Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/5C4033/FFFFFF?text=Deep+Umber', purchaseRate: 14, sellingRate: 21 },
-    { id: 'b3', name: 'Deep Red Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Deep+Red', purchaseRate: 15, sellingRate: 22 },
-    { id: 'b4', name: 'Brown Clay Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Brown+Clay', purchaseRate: 100, sellingRate: 150 }, // ~150/sqft
-    { id: 'b5', name: 'Sandblast Face Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Sandblast+Face', purchaseRate: 18, sellingRate: 25 },
-    { id: 'b6', name: 'Sandstone Cream Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/F5DEB3/000000?text=Sandstone+Cream', purchaseRate: 20, sellingRate: 30 },
-    { id: 'b7', name: 'Textured Sandblast Red', category: 'brick', image: 'https://placehold.co/600x400/CD5C5C/FFFFFF?text=Textured+Red', purchaseRate: 14, sellingRate: 21 },
-    { id: 'b8', name: 'Woodbark Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Woodbark', purchaseRate: 180, sellingRate: 280 }, // ~280/sqft panel
-    { id: 'b9', name: 'Light Grey Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/D3D3D3/000000?text=Light+Grey', purchaseRate: 22, sellingRate: 35 },
-    { id: 'b10', name: 'Teracotta Basic Red', category: 'brick', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Basic+Red', purchaseRate: 11, sellingRate: 16 },
-    { id: 'b11', name: 'Classic Rustic Red', category: 'brick', image: 'https://placehold.co/600x400/800000/FFFFFF?text=Rustic+Red', purchaseRate: 18, sellingRate: 26 },
-    { id: 'b12', name: 'Charcoal Blend Brick Tile', category: 'brick', image: 'https://placehold.co/600x400/36454F/FFFFFF?text=Charcoal+Blend', purchaseRate: 30, sellingRate: 45 },
+    // --- Exposed Bricks (Real Data) ---
+    {
+        id: 'b1',
+        name: 'Exposed Wire Cut Brick',
+        category: 'brick',
+        image: 'https://5.imimg.com/data5/SELLER/Default/2022/11/QG/DQ/FW/159332258/exposed-wire-cut-brick-500x500.jpeg',
+        purchaseRate: 14,
+        sellingRate: 20,
+        pcsPerSqFt: 5,
+        description: 'High-strength wire cut brick with low water absorption (<12%). Fired at 1200°C.',
+        dimensions: '230 x 110 x 70 mm'
+    },
+    {
+        id: 'b2',
+        name: 'Perforated 10-Hole Brick',
+        category: 'brick',
+        image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=10-Hole+Brick',
+        purchaseRate: 16,
+        sellingRate: 24,
+        pcsPerSqFt: 5,
+        description: 'Hydraulic pressed 10-hole brick for superior thermal insulation and strength.',
+        dimensions: '230 x 110 x 70 mm'
+    },
+    {
+        id: 'b3',
+        name: 'Handmade Face Brick',
+        category: 'brick',
+        image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Handmade+Face+Brick',
+        purchaseRate: 18,
+        sellingRate: 28,
+        pcsPerSqFt: 5,
+        description: 'Rustic handmade texture for premium elevations. Natural clay colors.'
+    },
 
-    // --- Exposed / Cladding ---
-    { id: 'c1', name: 'Hydraulic Pressed - 10 Holes', category: 'cladding', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Hydraulic+10Holes', purchaseRate: 15, sellingRate: 22 },
-    { id: 'c2', name: 'Clay Extruded AirBrick 2', category: 'cladding', image: 'https://placehold.co/600x400/CD853F/FFFFFF?text=AirBrick+2', purchaseRate: 25, sellingRate: 35 },
-    { id: 'c3', name: 'Classic Extruded Clay Brick', category: 'cladding', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Classic+Extruded', purchaseRate: 16, sellingRate: 24 },
-
-    // --- Roofing ---
-    { id: 'r1', name: 'Mangalore Roof Tile', category: 'roofing', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Mangalore+Roof', purchaseRate: 35, sellingRate: 50 },
-    { id: 'r2', name: 'Mangalore Roof Tile (Penta)', category: 'roofing', image: 'https://placehold.co/600x400/8B0000/FFFFFF?text=Mangalore+Penta', purchaseRate: 38, sellingRate: 55 },
-    { id: 'r3', name: 'Clay Roofing Tile', category: 'roofing', image: 'https://placehold.co/600x400/A52A2A/FFFFFF?text=Clay+Roofing', purchaseRate: 28, sellingRate: 40 },
-
-    // --- Flooring (Paver) ---
-    { id: 'f1', name: 'Teracotta Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Teracotta+Floor', purchaseRate: 40, sellingRate: 55 }, // ~55/pc
-    { id: 'f2', name: 'Yellow Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Yellow+Floor', purchaseRate: 45, sellingRate: 60 },
-    { id: 'f3', name: 'Biege Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/F5F5DC/000000?text=Biege+Floor', purchaseRate: 42, sellingRate: 58 },
-    { id: 'f4', name: 'Brown Clay Floor Tile', category: 'paver', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Brown+Floor', purchaseRate: 40, sellingRate: 55 },
-    { id: 'f5', name: 'Yellow Clay Hexagon', category: 'paver', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Yellow+Hex', purchaseRate: 50, sellingRate: 70 },
-    { id: 'f6', name: 'Clay Hexagonal Red', category: 'paver', image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Red+Hex', purchaseRate: 48, sellingRate: 68 },
+    // --- Cladding Tiles (Real Data) ---
+    {
+        id: 'c1',
+        name: 'Terracotta Wall Cladding Tile',
+        category: 'cladding',
+        image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Terracotta+Cladding',
+        purchaseRate: 18, // Buying at ~18
+        sellingRate: 27, // Selling at ~27 (approx 145/sqft at 5.33 pcs/sqft)
+        pcsPerSqFt: 5.33,
+        description: '9x3 inch clay tiles for wall elevation. (Approx ₹145/sqft).',
+        dimensions: '9 x 3 inches'
+    },
+    {
+        id: 'c2',
+        name: 'Antique Brass Fusion Tile',
+        category: 'cladding',
+        image: 'https://placehold.co/600x400/B8860B/FFFFFF?text=Antique+Brass+Fusion',
+        purchaseRate: 28,
+        sellingRate: 42, // Approx ₹220/sqft
+        pcsPerSqFt: 5.33,
+        description: 'Premium cladding with luxury metallic finish. (Approx ₹220/sqft).'
+    },
 
     // --- Jalis (Breeze Blocks) ---
-    { id: 'j1', name: 'Clay Amber Jaali', category: 'jali', image: 'https://placehold.co/600x400/DEB887/000000?text=Amber+Jaali', purchaseRate: 90, sellingRate: 140 }, // ~140/pc
-    { id: 'j2', name: 'Clay Camp Jaali', category: 'jali', image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Camp+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j3', name: 'Clay Cross Jaali', category: 'jali', image: 'https://placehold.co/600x400/8B4513/FFFFFF?text=Cross+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j4', name: 'Clay Edan Jaly', category: 'jali', image: 'https://placehold.co/600x400/CD853F/FFFFFF?text=Edan+Jaly', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j5', name: 'Clay Star Jaali', category: 'jali', image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Star+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j6', name: 'Orco Clay Jaali', category: 'jali', image: 'https://placehold.co/600x400/A0522D/FFFFFF?text=Orco+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j7', name: 'Clay Sapphire Jaali', category: 'jali', image: 'https://placehold.co/600x400/4682B4/FFFFFF?text=Sapphire+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j8', name: 'Topaz Jaali', category: 'jali', image: 'https://placehold.co/600x400/FFD700/000000?text=Topaz+Jaali', purchaseRate: 90, sellingRate: 140 },
-    { id: 'j9', name: 'Square Petals Jaali', category: 'jali', image: 'https://placehold.co/600x400/808080/FFFFFF?text=Square+Petals', purchaseRate: 40, sellingRate: 60 }, // Specific item mentioned at 60/pc
+    {
+        id: 'j1',
+        name: 'Square Petals Jali',
+        category: 'jali',
+        image: 'https://placehold.co/600x400/808080/FFFFFF?text=Square+Petals+Jali',
+        purchaseRate: 40,
+        sellingRate: 60,
+        pcsPerSqFt: 2.25, // 8x8 inch jali occupies ~0.44 sqft, so ~2.25 pcs/sqft
+        description: 'Natural clay jali for ventilation and partition walls.'
+    },
+    {
+        id: 'j2',
+        name: 'Geometric Clay Jali',
+        category: 'jali',
+        image: 'https://placehold.co/600x400/D2691E/FFFFFF?text=Geometric+Jali',
+        purchaseRate: 70,
+        sellingRate: 110,
+        pcsPerSqFt: 2.25,
+        description: 'Modern geometric design breeze block.'
+    },
+
+    // --- Roofing & Flooring ---
+    {
+        id: 'r1',
+        name: 'Mangalore Roof Tile (Premium)',
+        category: 'roofing',
+        image: 'https://placehold.co/600x400/B22222/FFFFFF?text=Mangalore+Roof',
+        purchaseRate: 38,
+        sellingRate: 55,
+        pcsPerSqFt: 1.5, // Large tiles
+        description: 'Classic clay roof tile with high water resistance.'
+    },
+    {
+        id: 'f1',
+        name: 'Hexagon Terracotta Floor Tile',
+        category: 'paver',
+        image: 'https://placehold.co/600x400/DAA520/FFFFFF?text=Hexagon+Floor',
+        purchaseRate: 40,
+        sellingRate: 65,
+        pcsPerSqFt: 3.5,
+        description: 'Elegant hexagonal flooring for interiors and courtyards.'
+    },
 
     // --- Projects ---
-    { id: 'proj1', name: 'Villa Elevation - Hyderabad', category: 'project', image: 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Villa+Project', purchaseRate: 0, sellingRate: 0 },
-    { id: 'proj2', name: 'Commercial Facade - Blr', category: 'project', image: 'https://placehold.co/600x400/708090/FFFFFF?text=Commercial+Project', purchaseRate: 0, sellingRate: 0 },
-    { id: 'proj3', name: 'Farmhouse Design', category: 'project', image: 'https://placehold.co/600x400/556B2F/FFFFFF?text=Farmhouse', purchaseRate: 0, sellingRate: 0 },
+    { id: 'proj1', name: 'Villa Elevation - Hyderabad', category: 'project', image: 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Villa+Project', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
+    { id: 'proj2', name: 'Commercial Facade - Blr', category: 'project', image: 'https://placehold.co/600x400/708090/FFFFFF?text=Commercial+Project', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
+    { id: 'proj3', name: 'Farmhouse Design', category: 'project', image: 'https://placehold.co/600x400/556B2F/FFFFFF?text=Farmhouse', purchaseRate: 0, sellingRate: 0, pcsPerSqFt: 0 },
 ];
 
 export const INITIAL_LEADS: Lead[] = [];

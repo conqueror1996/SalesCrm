@@ -5,17 +5,18 @@ const BOSS_PHONE_NUMBER = process.env.NEXT_PUBLIC_BOSS_PHONE || '919876543210';
 const AGENT_NAME = 'Rahul'; // Persona: Sales Manager
 const COMPANY_CONTEXT = {
     name: 'Urban Clay',
-    office: 'Kharghar, Navi Mumbai (near Hotel Highway Break)', // Updated Location
+    office: 'Kharghar, Navi Mumbai (near Hotel Highway Break)',
     old_office: 'Chembur (Vacated)',
     factory: 'Madhya Pradesh (Central India)',
     usps: [
-        'Fired at 1200°C for 48 hours (35MPa Strength)',
-        'Zero Maintenance for 50 years',
-        'Anti-fungal & Low Water Absorption (<10%)',
-        'Eco-friendly Natural Clay'
+        'Fired at 1200°C for superior strength (up to 60MPa)',
+        '100% Natural Clay with No Artificial Colors (Zero Fading)',
+        'High Thermal Comfort & Energy Efficiency',
+        'Over 30 years of expertise in natural clay materials',
+        'Eco-friendly & Sustainable Building Solutions'
     ],
     transport_note: 'Rates are Ex-Factory (Transport Extra)',
-    flexible_cladding_policy: 'BOSS_HANDLE' // Special case
+    flexible_cladding_policy: 'BOSS_HANDLE'
 };
 
 // --- TYPES ---
@@ -47,11 +48,9 @@ function calculatePrice(product: Product, areaSqFt: number): { rateSqFt: number,
 
     const sellingPricePc = Math.ceil(cost * (1 + marginPercent));
 
-    // SqFt Calculation (Mocking standard brick size coverage if distinct not avail, 
-    // typically 1 sqft needs ~5-6 standard bricks or ~3-4 tiles depending on size)
-    // Let's assume standard coverage: 5 pcs / sqft
-    const pcsPerSqFt = 5;
-    const sellingPriceSqFt = sellingPricePc * pcsPerSqFt;
+    // Dynamic Coverage Calculation
+    const pcsPerSqFt = product.pcsPerSqFt || 5;
+    const sellingPriceSqFt = Math.ceil(sellingPricePc * pcsPerSqFt);
 
     return {
         rateSqFt: sellingPriceSqFt,
@@ -77,30 +76,35 @@ function detectLanguage(text: string): 'English' | 'Hindi' | 'Marathi' {
 }
 
 // --- INTENT ANALYSIS ---
-type IntentType = 'BUY_NOW' | 'PRICE_INQUIRY' | 'INSTALLATION_INQUIRY' | 'LOCATION_INQUIRY' | 'PRODUCT_INFO' | 'COMPLAINT' | 'FLEXIBLE_CLADDING' | 'CASUAL';
+type IntentType = 'BUY_NOW' | 'PRICE_INQUIRY' | 'INSTALLATION_INQUIRY' | 'LOCATION_INQUIRY' | 'PRODUCT_INFO' | 'COMPLAINT' | 'FLEXIBLE_CLADDING' | 'SAMPLE_AGREEMENT' | 'CASUAL';
 
 function analyzeIntent(text: string): { intent: IntentType, emotion: string, urgency: number } {
     const lower = text.toLowerCase();
 
-    // 1. Special Trigger
+    // 1. Alert Trigger: Agreement to samples/charge
+    if (lower.match(/(agreed|okay|fine|approved|bhejo|bhej do|pathwa|chalel|ho)/) && (lower.includes('sample') || lower.includes('500') || lower.includes('charge'))) {
+        return { intent: 'SAMPLE_AGREEMENT', emotion: 'Positive', urgency: 10 };
+    }
+
+    // 2. Special Trigger
     if (lower.includes('flexible') || lower.includes('flexi')) return { intent: 'FLEXIBLE_CLADDING', emotion: 'Neutral', urgency: 5 };
 
-    // 2. High Urgency
+    // 3. High Urgency
     if (lower.includes('urgent') || lower.includes('immediately') || lower.includes('account') || lower.includes('pay')) {
         return { intent: 'BUY_NOW', emotion: 'Anxious', urgency: 9 };
     }
 
-    // 3. Price / Costing
+    // 4. Price / Costing
     if (lower.includes('price') || lower.includes('rate') || lower.includes('cost') || lower.includes('quote') || lower.includes('kaise diya')) {
         return { intent: 'PRICE_INQUIRY', emotion: 'Curious', urgency: 7 };
     }
 
-    // 4. Installation
+    // 5. Installation
     if (lower.includes('install') || lower.includes('fit') || lower.includes('labour') || lower.includes('lagane') || lower.includes('mistri')) {
         return { intent: 'INSTALLATION_INQUIRY', emotion: 'Concerned', urgency: 6 };
     }
 
-    // 5. Location
+    // 6. Location
     if (lower.includes('office') || lower.includes('shop') || lower.includes('store') || lower.includes('kahan') || lower.includes('kuth')) {
         return { intent: 'LOCATION_INQUIRY', emotion: 'Neutral', urgency: 5 };
     }
@@ -120,10 +124,37 @@ function calculateTypingDelay(response: string): number {
     return Math.min(baseDelay, 12000);
 }
 
+// --- AI AGENT WRAPPER ---
+export async function agentBrainWithAI(lead: Lead, lastMessage: string): Promise<AgentDecision> {
+    if (typeof window !== 'undefined') {
+        try {
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'generate_agent_response',
+                    lead,
+                    lastMessage
+                })
+            });
+
+            if (response.ok) {
+                const decision = await response.json();
+                console.log('🤖 AI Agent Decision:', decision);
+                return decision;
+            }
+        } catch (error) {
+            console.warn('AI agent failed, falling back to rule-based:', error);
+        }
+    }
+    return agentBrain(lead, lastMessage);
+}
+
 // --- MAIN AGENT BRAIN ---
 export async function agentBrain(lead: Lead, lastMessage: string): Promise<AgentDecision> {
     const lang = detectLanguage(lastMessage);
     const { intent, emotion, urgency } = analyzeIntent(lastMessage);
+    const firstName = lead.name.split(' ')[0] || 'Sir/Ma\'am';
 
     // Default Decision
     let decision: AgentDecision = {
@@ -132,6 +163,18 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
         typingDelayMs: 0,
         detectedLanguage: lang
     };
+
+    // ---------------------------------------------------------
+    // 0. SAMPLE AGREEMENT (Urgent Alert to Boss)
+    // ---------------------------------------------------------
+    if (intent === 'SAMPLE_AGREEMENT') {
+        return {
+            action: 'ALERT_BOSS',
+            thoughtProcess: 'Client Agreed to Sample Charges (₹500). Alerting Boss for Payment/Dispatch.',
+            typingDelayMs: 0,
+            detectedLanguage: lang
+        };
+    }
 
     // ---------------------------------------------------------
     // 1. BOSS ALERTS (Flexible Cladding or Anger)
@@ -160,9 +203,9 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
         if (requestArea === 0) {
             // ASK FOR QUANTITY
             let reply = '';
-            if (lang === 'Marathi') reply = `Namaskar, ${AGENT_NAME} boltoy Urban Clay madhun. Rate quantity war avalambun ahe. Tumhala sadharan kiti sqft chi requirement ahe?`;
-            else if (lang === 'Hindi') reply = `Namaste, main ${AGENT_NAME} baat kar raha hoon Urban Clay se. Sahi rate dene ke liye, kya aap bata sakte hain ki approx kitna sqft area hai?`;
-            else reply = `Hi, this is ${AGENT_NAME} from Urban Clay. To give you the best price, could you please confirm the approximate area (sqft) required? Qty affects the discount.`;
+            if (lang === 'Marathi') reply = `Namaskar ${firstName}, ${AGENT_NAME} boltoy Urban Clay madhun. Rate quantity war avalambun ahe. Tumhala sadharan kiti sqft chi requirement ahe?`;
+            else if (lang === 'Hindi') reply = `Namaste ${firstName}, main ${AGENT_NAME} baat kar raha hoon Urban Clay se. Sahi rate dene ke liye, kya aap bata sakte hain ki approx kitna sqft area hai?`;
+            else reply = `Hi ${firstName}, this is ${AGENT_NAME} from Urban Clay. To give you the best price, could you please confirm the approximate area (sqft) required? Qty affects the discount.`;
 
             return {
                 action: 'REPLY',
@@ -177,17 +220,17 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
 
             let reply = '';
             // value selling pitch
-            const pitch = `This is our premium ${product.name}, fired at 1200°C. It fits perfectly for your ${requestArea} sqft area.`;
-            const priceBreakup = `\nRate: ₹${pricing.rateSqFt}/sqft (approx ₹${pricing.ratePerPc}/pc).\nTransport is extra as per actuals.`;
+            const pitch = `This is our premium ${product.name}, fired at 1200°C for superior strength. It fits perfectly for your ${requestArea} sqft area.`;
+            const transportAsk = `To calculate the transport cost for this quantity, could you please share your site PINCODE?`;
 
-            if (lang === 'Marathi') reply = `${pitch} Rate: ₹${pricing.rateSqFt}/sqft padel. Hai rate ex-factory ahe (Transport extra). Tumhala installation (fitters) chi garaj ahe ka?`;
-            else if (lang === 'Hindi') reply = `${pitch} Aapke ${requestArea} sqft ke liye special rate rahega ₹${pricing.rateSqFt}/sqft. Yeh bina transport ka rate hai. Kya aapko installation (mistri) ki bhi zaroorat hai?`;
-            else reply = `${pitch} For your ${requestArea} sqft volume, I can offer a special rate of ₹${pricing.rateSqFt}/sqft (₹${pricing.ratePerPc}/pc).\nNote: Rates are Ex-Factory. Do you require installation assistance with the supply?`;
+            if (lang === 'Marathi') reply = `Namaskar ${firstName}, ${pitch} Rate: ₹${pricing.rateSqFt}/sqft padel (Ex-factory). Transport cost sangnyasathi tumcha site PINCODE share karal ka?`;
+            else if (lang === 'Hindi') reply = `Namaste ${firstName}, ${pitch} Aapke ${requestArea} sqft ke liye special rate ₹${pricing.rateSqFt}/sqft rahega. Transport cost jinkari ke liye, kya aap apne site ka PINCODE confirm karenge?`;
+            else reply = `Hi ${firstName}, ${pitch} For your ${requestArea} sqft volume, I can offer a special rate of ₹${pricing.rateSqFt}/sqft (₹${pricing.ratePerPc}/pc).\n\n${transportAsk}`;
 
             return {
                 action: 'REPLY',
                 response: reply,
-                thoughtProcess: `Calculated Price for ${requestArea}sqft: ₹${pricing.rateSqFt}/sqft (Margin: ${pricing.margin}). Asking regarding Installation.`,
+                thoughtProcess: `Calculated Price for ${requestArea}sqft: ₹${pricing.rateSqFt}/sqft. Asking for Pincode for transport.`,
                 typingDelayMs: calculateTypingDelay(reply),
                 detectedLanguage: lang
             };
@@ -199,9 +242,9 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
     // ---------------------------------------------------------
     if (intent === 'INSTALLATION_INQUIRY') {
         let reply = '';
-        if (lang === 'Hindi') reply = "Haan, hum installation assistance dete hain. Main apne expert installation team se baat karke 30-60 mins main aapko exact labour cost batata hoon.";
-        else if (lang === 'Marathi') reply = "Ho, amchya kade expert fitters ahet. Mi tyanchyashi bolun ardhya tasat tumhala installation charge sangto.";
-        else reply = "Yes, we provide installation assistance. Let me check with our technical team and share the exact labour estimate within 30-60 minutes.";
+        if (lang === 'Hindi') reply = `Haan ${firstName}, hum installation assistance dete hain. Main apne expert installation team se baat karke 30-60 mins main aapko exact labour cost batata hoon.`;
+        else if (lang === 'Marathi') reply = `Ho ${firstName}, amchya kade expert fitters ahet. Mi tyanchyashi bolun ardhya tasat tumhala installation charge sangto.`;
+        else reply = `Yes ${firstName}, we provide installation assistance. Let me check with our technical team and share the exact labour estimate within 30-60 minutes.`;
 
         return {
             action: 'REPLY',
@@ -216,7 +259,7 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
     // 4. LOCATION
     // ---------------------------------------------------------
     if (intent === 'LOCATION_INQUIRY') {
-        const reply = `Our Experience Centre is in Kharghar, Navi Mumbai (near Hotel Highway Break). We recently moved from Chembur to this bigger space. You can check the google map location here. When are you planning to visit?`;
+        const reply = `Hi ${firstName}, our Experience Centre is in Kharghar, Navi Mumbai (near Hotel Highway Break). We recently moved from Chembur to this bigger space. You can check the google map location here. When are you planning to visit?`;
         return {
             action: 'REPLY',
             response: reply,
@@ -227,17 +270,21 @@ export async function agentBrain(lead: Lead, lastMessage: string): Promise<Agent
     }
 
     // ---------------------------------------------------------
-    // 5. BUYING / SAMPLES
+    // 5. BUYING / SAMPLES (PORTER/DTDC + 500 CHARGE)
     // ---------------------------------------------------------
     if (intent === 'BUY_NOW') {
         let reply = '';
-        if (lang === 'Hindi') reply = "Great! Kya main aapke site par samples bhajwa doon? Address confirm kar dijiye.";
-        else reply = "That's great. Shall I dispatch a sample box to your site today? Please confirm the location.";
+        const chargeNote = "There will be a nominal courier charge of ₹500 for the sample box.";
+        const deliveryNote = "If your site is within Mumbai, we will dispatch it via Porter bike. For locations outside Mumbai, we use DTDC courier.";
+
+        if (lang === 'Hindi') reply = `Great ${firstName}! Hum samples bhijwa sakte hain. Iska ₹500 courier charge rahega. Mumbai ke liye hum Porter se bhejte hain aur Mumbai ke bahar DTDC se. Kya aapko ye chalega? Sahi delivery ke liye apna PINCODE confirm kijiye.`;
+        else if (lang === 'Marathi') reply = `Khoop chan ${firstName}! Mi samples pathavto. Tyache ₹500 courier charges astil. Mumbai sathi Porter ani Mumbai baher sathi DTDC vaparto. Tumhala manya ahe ka? Krupaya tumcha PINCODE share kara.`;
+        else reply = `That's great ${firstName}. I can arrange the sample box for you. ${chargeNote} ${deliveryNote}\n\nDoes that work for you? Also, please confirm your PINCODE.`;
 
         return {
             action: 'REPLY',
             response: reply,
-            thoughtProcess: 'High Intent detected. Closing on Sample Dispatch.',
+            thoughtProcess: 'Closing on Sample Dispatch. Informed about ₹500 charge and Porter/DTDC delivery.',
             typingDelayMs: calculateTypingDelay(reply),
             detectedLanguage: lang
         };

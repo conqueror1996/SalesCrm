@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { signIn, signOut, useSession } from "next-auth/react";
 import styles from '../styles/Home.module.css';
 import { PRODUCTS, Lead, Message, Product } from '../data/mockData';
-import { analyzeContext, AIGuidance, SuggestedAction, getGlobalStats } from '../lib/intelligence';
-import { generateSmartReply } from '../lib/ai-reply';
+import { analyzeContext, analyzeContextWithAI, AIGuidance, SuggestedAction, getGlobalStats } from '../lib/intelligence';
+import { generateSmartReply, generateSmartDraftWithAI } from '../lib/ai-reply';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { QuoteBuilder } from '../components/QuoteBuilder';
 import { Shell } from '../components/layout/Shell';
 import { LeadCard } from '../components/leads/LeadCard';
 import { Phone, MessageCircle } from 'lucide-react';
-import { agentBrain, AgentDecision } from '../lib/sales-agent';
+import { agentBrain, agentBrainWithAI, AgentDecision } from '../lib/sales-agent';
 
 // WhatsApp Server URL - use environment variable or fallback to localhost
 // WhatsApp Server URL - Smart switch for Dev vs. Prod
@@ -30,7 +30,8 @@ const Icons = {
   Box: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>,
   Calc: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>,
   WhatsApp: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>,
-  Sparkles: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"></path></svg>
+  Sparkles: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"></path></svg>,
+  Info: ({ size = 18 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
 };
 
 export default function Dashboard() {
@@ -80,6 +81,7 @@ export default function Dashboard() {
   // Responsive State
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>('list');
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -169,7 +171,22 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchLeads = async () => {
       try {
-        const res = await fetch('/api/leads', { cache: 'no-store' });
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const res = await fetch('/api/leads', {
+          cache: 'no-store',
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          console.error(`API Error: ${res.status} ${res.statusText}`);
+          return;
+        }
+
         const data = await res.json();
 
         if (Array.isArray(data)) {
@@ -223,8 +240,13 @@ export default function Dashboard() {
           setIsLive(true);
           setLastSynced(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         }
-      } catch (err) {
-        console.error('Lead fetch error:', err);
+      } catch (err: any) {
+        // Distinguish between timeout and other errors
+        if (err.name === 'AbortError') {
+          console.warn('Lead fetch timeout - request took longer than 10 seconds');
+        } else {
+          console.error('Lead fetch error:', err);
+        }
       }
     };
 
@@ -364,8 +386,16 @@ export default function Dashboard() {
   useEffect(() => {
     if (activeLead && activeLead.messages.length > 0) {
       const lastMsg = activeLead.messages[activeLead.messages.length - 1];
-      const aiResult = analyzeContext(activeLead, lastMsg);
-      setGuidance(aiResult);
+
+      // Use AI-powered analysis (with fallback to rules)
+      analyzeContextWithAI(activeLead, lastMsg).then(aiResult => {
+        setGuidance(aiResult);
+      }).catch(error => {
+        console.error('Analysis error:', error);
+        // Fallback to rule-based if async fails
+        const fallbackResult = analyzeContext(activeLead, lastMsg);
+        setGuidance(fallbackResult);
+      });
     }
   }, [activeLead, activeLeadId]); // Simplified dependency
 
@@ -382,12 +412,15 @@ export default function Dashboard() {
       // Simple version: just proceed
     }
 
-    // AI Magic
-    const result = generateSmartReply(lastMsg.content, guidance?.customerType);
-    setInputText(result.reply);
-
-    // Optional: Toast or Log
-    console.log(`[AI] Drafted reply for topic: ${result.topic} (${result.confidence})`);
+    // AI Magic (Use AI-powered Draft with fallback)
+    generateSmartDraftWithAI(lastMsg.content, guidance?.customerType).then(result => {
+      setInputText(result.reply);
+      console.log(`[AI] Drafted reply for topic: ${result.topic} (${result.confidence})`);
+    }).catch(err => {
+      console.error('Draft error:', err);
+      const result = generateSmartReply(lastMsg.content, guidance?.customerType);
+      setInputText(result.reply);
+    });
   };
 
 
@@ -417,8 +450,8 @@ export default function Dashboard() {
         setAgentThinking(true);
         setAgentStatus('🧠 Analyzing Intent & Emotion...');
 
-        // 1. Think
-        const decision = await agentBrain(activeLead, lastMsg.content);
+        // 1. Think (Use AI-powered Brain with fallback)
+        const decision = await agentBrainWithAI(activeLead, lastMsg.content);
 
         // 2. Act
         if (decision.action === 'REPLY' && decision.response) {
@@ -471,6 +504,29 @@ export default function Dashboard() {
     );
 
     if (type === 'text') setInputText('');
+
+    // Save message to database
+    if (activeLead?.id) {
+      try {
+        const res = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leadId: activeLead.id,
+            content: content,
+            sender: 'salesrep',
+            type: type
+          })
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Database Save Error:', res.status, errorText);
+        }
+      } catch (err) {
+        console.error('Database Save Error:', err);
+      }
+    }
 
     // Official WhatsApp API Integration
     if (activeLead?.phone) {
@@ -870,6 +926,89 @@ export default function Dashboard() {
               </div>
             )
           }
+          {/* --- SETTINGS VIEW --- */}
+          {
+            currentView === 'settings' && (
+              <div style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+                <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem', fontWeight: 700, fontFamily: 'var(--font-outfit)' }}>Settings & Integrations</h2>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
+                  {/* IndiaMART Integration */}
+                  <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '12px' }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>🏢 IndiaMART API</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>Automatically sync leads directly from your IndiaMART seller account into the CRM real-time.</p>
+                    <button
+                      onClick={async () => {
+                        const res = await fetch('/api/indiamart/sync');
+                        const data = await res.json();
+                        if (data.success) {
+                          alert(`[SYSTEM] 🏢 IndiaMART API Sync: Found ${data.count} updates.`);
+                        } else {
+                          alert(data.message || "Sync failed. Error: No API Key found in env.");
+                        }
+                      }}
+                      style={{ padding: '10px 20px', background: 'rgba(255,153,0,0.1)', border: '1px solid #ff9900', color: '#ff9900', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      Sync IndiaMART Now
+                    </button>
+                  </div>
+
+                  {/* Google / Gmail Integration */}
+                  <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '12px' }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>📧 Google Business Suite</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>Automate lead capture from IndiaMART email notifications and sync clients to Google Contacts.</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {session ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--success)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ width: 8, height: 8, background: 'var(--success)', borderRadius: '50%' }}></span>
+                            Connected as {session.user?.email}
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const res = await fetch('/api/gmail/sync');
+                              const data = await res.json();
+                              if (data.success) {
+                                alert(`📧 Gmail checked: Found ${data.leads.length} new leads.`);
+                              }
+                            }}
+                            style={{ padding: '10px 20px', background: 'rgba(255,102,102,0.1)', border: '1px solid #ff6666', color: '#ff6666', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                          >
+                            Scan Gmail for Leads
+                          </button>
+                          <button onClick={() => signOut()} style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: 'var(--error)', background: 'none', border: 'none', padding: '10px 0', cursor: 'pointer', textDecoration: 'underline' }}>Sign Out from Google</button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => signIn('google')}
+                          style={{ padding: '12px 24px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700 }}
+                        >
+                          Connect Google Account
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* WhatsApp System Info */}
+                  <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '12px' }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Icons.WhatsApp /> WhatsApp Engine
+                    </h3>
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Server URL</div>
+                      <div style={{ fontSize: '0.85rem', color: 'white', wordBreak: 'break-all' }}>{serverUrl}</div>
+                    </div>
+                    <button
+                      onClick={() => { setActiveLeadId(''); setCurrentView('crm'); }}
+                      style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--glass-border)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      Re-configure Connection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          }
 
           {/* --- CRM VIEW (Original Content) --- */}
           <div style={{ display: currentView === 'crm' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
@@ -984,40 +1123,15 @@ export default function Dashboard() {
                       ℹ️
                     </button>
                   )}
-                  <button
-                    onClick={async () => {
-                      const res = await fetch('/api/indiamart/sync');
-                      const data = await res.json();
-                      if (data.success) {
-                        alert(`[SYSTEM] 🏢 IndiaMART API Sync: Found ${data.count} updates.`);
-                      } else {
-                        alert(data.message || "Sync failed. Error: No API Key found in env.");
-                      }
-                    }}
-                    style={{ background: 'rgba(255,153,0,0.1)', border: '1px solid #ff9900', color: '#ff9900', fontSize: '0.7rem', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
-                  >
-                    Sync IndiaMART API
-                  </button>
 
-                  {session ? (
-                    <>
-                      <button
-                        onClick={async () => {
-                          const res = await fetch('/api/gmail/sync');
-                          const data = await res.json();
-                          if (data.success) {
-                            handleSendMessage(`[SYSTEM] 📧 Gmail checked: Found ${data.leads.length} new IndiaMART leads.`, 'text');
-                          }
-                        }}
-                        style={{ background: 'rgba(255,102,102,0.1)', border: '1px solid #ff6666', color: '#ff6666', fontSize: '0.7rem', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Fetch Gmail Leads
-                      </button>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', border: '1px solid var(--glass-border)', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)' }}>
+                    {isWhatsappConnected ? '🟢 WhatsApp Live' : '🔴 Connection Offline'}
+                  </div>
+
+                  {session && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{session.user?.email}</div>
-                      <button onClick={() => signOut()} style={{ fontSize: '0.7rem', background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}>Logout</button>
-                    </>
-                  ) : (
-                    <button onClick={() => signIn('google')} style={{ background: 'var(--primary)', color: 'white', border: 'none', fontSize: '0.7rem', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}>Connect Google Account</button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1204,56 +1318,25 @@ export default function Dashboard() {
                       <div>
                         <h3 style={{ marginBottom: '4px' }}>{activeLead.name}</h3>
                         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: '10px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--glass-border)' }}>
                             {activeLead.status.toUpperCase()}
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: '#25D366', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(37, 211, 102, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
-                            <span style={{ width: 6, height: 6, background: '#25D366', borderRadius: '50%' }} /> WhatsApp Connected
                           </span>
 
                           {/* --- LEAD HEAT METER --- */}
                           {guidance?.seriousBuyerScore !== undefined && (
-                            <div title={`Serious Buyer Score: ${guidance.seriousBuyerScore}/100`} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px 8px', borderRadius: '6px', border: `1px solid ${guidance.heatColor === 'red' ? '#ef4444' : guidance.heatColor === 'yellow' ? '#f59e0b' : '#3b82f6'}` }}>
-                              <span style={{ fontSize: '0.9rem' }}>{guidance.heatColor === 'red' ? '🔥' : guidance.heatColor === 'yellow' ? '🟡' : '❄️'}</span>
-                              <div style={{ height: '6px', width: '60px', background: '#333', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${guidance.seriousBuyerScore}%`, background: guidance.heatColor === 'red' ? '#ef4444' : guidance.heatColor === 'yellow' ? '#f59e0b' : '#3b82f6', transition: 'width 0.5s ease' }} />
-                              </div>
+                            <div title={`Serious Buyer Score: ${guidance.seriousBuyerScore}/100`} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: '6px' }}>
+                              <span style={{ fontSize: '0.8rem' }}>{guidance.heatColor === 'red' ? '🔥' : guidance.heatColor === 'yellow' ? '🟡' : '❄️'}</span>
                               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'white' }}>{guidance.seriousBuyerScore}</span>
                             </div>
                           )}
 
-                          {/* --- QUALIFY BUTTON --- */}
-                          <button
-                            onClick={() => setShowQualificationModal(true)}
-                            style={{
-                              background: activeLead.qualificationStatus === 'qualified' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.1)',
-                              border: `1px solid ${activeLead.qualificationStatus === 'qualified' ? '#10b981' : 'rgba(239, 68, 68, 0.5)'}`,
-                              color: activeLead.qualificationStatus === 'qualified' ? '#10b981' : '#fca5a5',
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            {activeLead.qualificationStatus === 'qualified' ? '✅ Qualified' : '⚠️ Qualify Lead'}
-                          </button>
                           {activeLead.sampleRequest?.status === 'pending' && (
                             <button
                               onClick={handleDispatchSample}
-                              style={{ background: 'var(--warning)', color: 'black', border: 'none', padding: '4px 10px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ background: 'rgba(251, 146, 60, 0.1)', color: '#fb923c', border: '1px solid #fb923c', padding: '4px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer' }}
                             >
-                              <Icons.Box /> DISPATCH PENDING
+                              📦 SHIP SAMPLE
                             </button>
-                          )}
-                          {activeLead.sampleRequest?.status === 'dispatched' && (
-                            <span style={{ color: 'var(--success)', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Icons.Box /> SAMPLE DISPATCHED
-                            </span>
                           )}
                         </div>
                       </div>
@@ -1364,6 +1447,21 @@ export default function Dashboard() {
                             </div>
                           )}
                         </div>
+
+                        {/* Intelligence Panel Toggle */}
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                          style={{
+                            color: isPanelCollapsed ? 'var(--text-tertiary)' : 'var(--primary)',
+                            background: isPanelCollapsed ? 'transparent' : 'rgba(99, 102, 241, 0.1)',
+                            borderRadius: '8px',
+                            padding: '6px'
+                          }}
+                          title={isPanelCollapsed ? "Show Lead Intelligence" : "Hide Lead Intelligence"}
+                        >
+                          <Icons.Info size={20} />
+                        </button>
                       </div>
                     </div>
 
@@ -1395,38 +1493,46 @@ export default function Dashboard() {
                     </div>
 
                     <div className={styles.inputArea}>
-                      {/* --- WEAPON SYSTEM TOOLBAR --- */}
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
-                        <button
-                          onClick={() => handleSendMessage("Welcome to Urban Clay. You've reached the premium standard in face bricks. Our materials are fired for 48 hours to achieve 35MPa strength—meaning zero maintenance for 50 years.", 'text')}
-                          style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid #818cf8', padding: '6px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          ⚡ Premium Intro
-                        </button>
-                        <button
-                          onClick={() => handleSendMessage('Here are 5 premium elevation examples for your reference.', 'image', 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Villa+Elevation+1')}
-                          style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid #34d399', padding: '6px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          📷 5 Elevations
-                        </button>
-                        <button
-                          onClick={() => handleSendMessage("We have a sample dispatch going out to your area tomorrow. Should I include a box for your site? It's the best way to check the 35MPa strength.", 'image', availableProducts[0]?.image)}
-                          style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid #fbbf24', padding: '6px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          📦 Push Sample
-                        </button>
-                        <button
-                          onClick={() => handleSendMessage("⚠️ Stock Alert: This batch is moving fast. If you are serious about this texture, I suggest we freeze the lot today.", 'text')}
-                          style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid #f87171', padding: '6px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          💀 Scarcity
-                        </button>
-                        <button
-                          onClick={() => handleSendMessage("Could you share the exact site location? I want to check if our heavy trucks can access the road.", 'text')}
-                          style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          📍 Ask Location
-                        </button>
+                      {/* --- SALES STRATEGY ACTIONS --- */}
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', padding: '4px 2px', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {[
+                          { label: 'Premium Intro', icon: '✨', action: () => handleSendMessage("Welcome to Urban Clay Solutions. We specialize in premium exposed brick architecture. How can we assist with your project today?", 'text') },
+                          { label: 'Elevation Portfolio', icon: '🖼️', action: () => handleSendMessage('Here are some of our recent elevation projects for inspiration.', 'image', 'https://placehold.co/600x400/2F4F4F/FFFFFF?text=Premium+Elevations') },
+                          { label: 'Ship Sample', icon: '📦', action: () => handleDispatchSample() },
+                          { label: 'Technical Specs', icon: '📐', action: () => handleSendMessage("Our standard bricks are 9x4x3 inches, compressive strength >15N/mm². Would you like the full catalog?", 'text') }
+                        ].map((btn, i) => (
+                          <button
+                            key={i}
+                            onClick={btn.action}
+                            className="glass-panel"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              color: 'white',
+                              border: '1px solid var(--glass-border)',
+                              padding: '8px 16px',
+                              borderRadius: '999px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              transition: 'all 0.2s',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            <span>{btn.icon}</span> {btn.label}
+                          </button>
+                        ))}
                       </div>
 
                       <div className={styles.inputWrapper}>
@@ -1550,1123 +1656,582 @@ export default function Dashboard() {
             </div>
 
             <div className={styles.intelligencePanel} style={{
-              width: isMobile ? '100%' : '380px',
+              width: isMobile ? '100%' : (isPanelCollapsed ? '0px' : '380px'),
               flexShrink: 0,
-              borderLeft: '1px solid var(--card-border)',
+              borderLeft: isPanelCollapsed ? 'none' : '1px solid var(--card-border)',
               background: 'var(--warm-white)',
               display: (isMobile && mobileView !== 'info') ? 'none' : 'flex',
               flexDirection: 'column',
-              overflowY: 'auto'
+              overflowY: 'auto',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              position: 'relative'
             }}>
-              <div className={styles.panelHeader} style={{ padding: '1rem 1.5rem' }}>
-                {isMobile && (
-                  <button
-                    onClick={() => setMobileView('chat')}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', marginRight: '1rem', fontSize: '1.2rem', cursor: 'pointer' }}
-                  >
-                    ← Back
-                  </button>
-                )}
-                {/* Pipeline Summary */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Revenue Pipeline</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--deep-earth)', marginTop: '2px', fontFamily: 'var(--font-outfit)' }}>
-                      ₹{(stats.totalRevenue / 100000).toFixed(1)}L
+              {!isMobile && (
+                <button
+                  onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+                  style={{
+                    position: 'absolute',
+                    left: '-12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'var(--warm-white)',
+                    border: '1px solid var(--glass-border)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    zIndex: 20,
+                    fontSize: '10px'
+                  }}
+                >
+                  {isPanelCollapsed ? '←' : '→'}
+                </button>
+              )}
+              {!isPanelCollapsed && (
+                <>
+                  <div className={styles.panelHeader} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {isMobile && (
+                      <button
+                        onClick={() => setMobileView('chat')}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '1.2rem', cursor: 'pointer' }}
+                      >
+                        ←
+                      </button>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pipeline Impact</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--deep-earth)', marginTop: '2px', fontFamily: 'var(--font-outfit)' }}>
+                          ₹{(stats.totalRevenue / 100000).toFixed(1)}L
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Target Focus</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--clay-red)', marginTop: '2px', fontFamily: 'var(--font-outfit)' }}>
+                          {stats.hotLeads} Hot
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Hot Leads</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--clay-red)', marginTop: '2px', fontFamily: 'var(--font-outfit)' }}>
-                      {stats.hotLeads}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className={styles.panelContent} style={{ paddingTop: '0.5rem' }}>
-                {activeLead && activeLead.id ? (
-                  <>
-                    <div className="animate-fade-in">
-                      {(() => {
-                        const guidance = (activeLead as any).guidance || analyzeContext(activeLead, activeLead.lastMessage);
-                        return (
-                          <>
-                            {/* PRIMARY LEAD CARD */}
-                            <div className={styles.infoCard}>
-                              {guidance.leadScore === 'HOT 🔥' && <div style={{ position: 'absolute', top: 0, right: 0, left: 0, height: 2, background: 'var(--primary)' }} />}
-
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'flex-start' }}>
-                                <div>
-                                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-outfit)', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                                    {guidance.customerType || 'New Contact'}
-                                  </h3>
-                                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span>📍</span> {guidance.location || 'Location Pending'}
-                                  </div>
-                                </div>
-                                <div style={{
-                                  padding: '4px 12px', borderRadius: '999px',
-                                  background: guidance.qualificationStatus === 'qualified' ? 'rgba(76, 117, 88, 0.1)' : 'rgba(217, 119, 66, 0.1)',
-                                  color: guidance.qualificationStatus === 'qualified' ? 'var(--success)' : 'var(--warning)',
-                                  fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase'
-                                }}>
-                                  {guidance.qualificationStatus?.replace('_', ' ') || 'Pending'}
-                                </div>
-                              </div>
-
-                              {/* URGENCY & ALERTS */}
-                              {guidance.followUpStatus === 'Urgent' && (
-                                <div className={styles.infoCard} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ fontSize: '1.2rem' }}>⏰</span>
-                                  <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--error)' }}>ACTION REQUIRED</div>
-                                    <div style={{ fontSize: '0.7rem', color: '#fca5a5' }}>Lead is hot but inactive. Follow up now!</div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* ARCHITECT DETECTOR BADGE */}
-                              {guidance.isArchitect && (
-                                <div style={{
-                                  background: 'linear-gradient(90deg, #F59E0B, #D97706)',
-                                  color: 'black',
-                                  padding: '8px',
-                                  borderRadius: '6px',
-                                  fontWeight: 800,
-                                  fontSize: '0.75rem',
-                                  textAlign: 'center',
-                                  marginBottom: '1rem',
-                                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                                }}>
-                                  <span>📐</span> ARCHITECT DETECTED
-                                </div>
-                              )}
-
-                              {/* SERIOUS BUYER SCORE (0-100) */}
+                  <div className={styles.panelContent} style={{ paddingTop: '0' }}>
+                    {activeLead && activeLead.id ? (
+                      <div className="animate-fade-in" style={{ padding: '1.5rem' }}>
+                        {(() => {
+                          const guidance = (activeLead as any).guidance || analyzeContext(activeLead, activeLead.lastMessage);
+                          return (
+                            <>
+                              {/* CLIENT PROFILE SUMMARY */}
                               <div style={{ marginBottom: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Buyer Intent Score</span>
-                                  <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--clay-red)' }}>{guidance.seriousBuyerScore || 0}/100</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-outfit)' }}>{guidance.customerType || 'New Lead'}</h3>
+                                  <button
+                                    style={{
+                                      fontSize: '0.65rem',
+                                      color: syncedContacts.has(activeLead.id) ? '#10b981' : '#4285F4',
+                                      background: syncedContacts.has(activeLead.id) ? 'rgba(16, 185, 129, 0.1)' : 'rgba(66, 133, 244, 0.1)',
+                                      padding: '4px 10px',
+                                      borderRadius: '6px',
+                                      fontWeight: 800,
+                                      cursor: 'pointer',
+                                      border: `1px solid ${syncedContacts.has(activeLead.id) ? 'rgba(16, 185, 129, 0.2)' : 'rgba(66, 133, 244, 0.2)'}`,
+                                      transition: 'all 0.2s',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                    onClick={() => handleGoogleSync(activeLead, guidance)}
+                                  >
+                                    {syncedContacts.has(activeLead.id) ? '✓ SYNCED' : '👤 GOOGLE SYNC'}
+                                  </button>
                                 </div>
-                                <div style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                                  <div style={{
-                                    height: '100%',
-                                    width: `${guidance.seriousBuyerScore || 10}%`,
-                                    background: (guidance.seriousBuyerScore || 0) > 75 ? 'var(--clay-red)' : ((guidance.seriousBuyerScore || 0) > 40 ? 'var(--warning)' : '#cbd5e1'),
-                                    borderRadius: '4px',
-                                    transition: 'width 0.5s ease'
-                                  }} />
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px' }}>
+                                  <span>📍 {guidance.location || 'Unknown'}</span>
+                                  {guidance.isArchitect && <span style={{ color: '#f59e0b', fontWeight: 700 }}>📐 ARCHITECT</span>}
                                 </div>
-                                <div style={{ display: 'flex', gap: '1rem', marginTop: '12px' }}>
-                                  <div style={{ flex: 1, padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '8px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Est. Value</div>
-                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{guidance.estimatedValue || '-'}</div>
+                              </div>
+
+                              {/* PRIMARY HEALTH METRICS */}
+                              <div className="glass-panel" style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(0,0,0,0.02)', marginBottom: '1.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                  <div>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Intent Score</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: (guidance.seriousBuyerScore || 0) > 70 ? 'var(--clay-red)' : 'white' }}>
+                                      {guidance.seriousBuyerScore || 0}%
+                                    </div>
                                   </div>
-                                  <div style={{ flex: 1, padding: '12px', background: 'rgba(0,0,0,0.02)', borderRadius: '8px' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Timeline</div>
-                                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>{guidance.decisionPressure || 'Thinking'}</div>
+                                  <div>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Est. Value</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)' }}>
+                                      {guidance.estimatedValue || '—'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Closure Prob.</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)' }}>{guidance.closureProbability}%</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.6rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Pressure</div>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{guidance.decisionPressure || 'Normal'}</div>
                                   </div>
                                 </div>
                               </div>
 
-
-
-                              {/* SALES SIGNALS: Objections & Risks Only */}
-                              {/* SALES SIGNALS & INTENT (UNIFIED CARD) */}
-                              <div className={styles.infoCard} style={{ marginTop: '1rem', padding: '1.5rem' }}>
-                                <h4 style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Smart Analysis</h4>
-
-                                {/* OBJECTION DETECTOR */}
-                                {guidance.objectionDetected && guidance.objectionDetected !== 'None' ? (
-                                  <div style={{ marginBottom: '1rem', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--error)', borderRadius: '8px', display: 'flex', gap: '10px' }}>
-                                    <span style={{ fontSize: '1.2rem' }}>🛡️</span>
-                                    <div>
-                                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--error)' }}>{guidance.objectionDetected.toUpperCase()} DETECTED</div>
-                                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                        {guidance.objectionDetected === 'Price' ? 'Negotiation detected. Promote value/ROI.' : 'Competitor mention. Highlight exclusivity.'}
+                              {/* CRITICAL SIGNALS */}
+                              {(guidance.followUpStatus === 'Urgent' || guidance.ghostingStatus !== 'Safe' || (guidance.objectionDetected && guidance.objectionDetected !== 'None')) && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.1em' }}>Urgent Signals</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {guidance.followUpStatus === 'Urgent' && (
+                                      <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderLeft: '3px solid var(--error)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--error)', fontWeight: 600 }}>
+                                        ⚠️ IMMEDIATE FOLLOW-UP REQUIRED
                                       </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                                    <span>✅</span> <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No objections detected.</span>
-                                  </div>
-                                )}
-                                {/* OBJECTION INTENSITY */}
-                                {guidance.objectionIntensity && (
-                                  <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--card-border)', paddingTop: '1rem' }}>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Objection Intensity</div>
-                                    <div style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: guidance.objectionIntensity === 'High' ? 'rgba(239, 68, 68, 0.2)' : (guidance.objectionIntensity === 'Medium' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'), color: guidance.objectionIntensity === 'High' ? 'var(--error)' : (guidance.objectionIntensity === 'Medium' ? 'var(--warning)' : 'var(--success)') }}>
-                                      {guidance.objectionIntensity.toUpperCase()}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* CLIENT BEHAVIOR SUMMARY */}
-                                {guidance.clientBehavior && (
-                                  <div style={{ display: 'flex', gap: '2rem', marginTop: '0.5rem' }}>
-                                    <div>
-                                      <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Responsiveness</div>
-                                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: guidance.clientBehavior.responsiveness === 'Fast' ? 'var(--success)' : 'var(--text-primary)' }}>{guidance.clientBehavior.responsiveness}</div>
-                                    </div>
-                                    <div>
-                                      <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Seriousness</div>
-                                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: guidance.clientBehavior.seriousnessScore === 'High' ? 'var(--clay-red)' : 'var(--text-primary)' }}>{guidance.clientBehavior.seriousnessScore}</div>
-                                    </div>
-                                  </div>
-                                )}
-
-
-                                {/* GHOSTING STATUS */}
-                                {guidance.ghostingStatus !== 'Safe' && (
-                                  <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #fbbf24', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '1.2rem' }}>👻</span>
-                                    <div>
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24' }}>RISK: {guidance.ghostingStatus.toUpperCase()}</div>
-                                      <div style={{ fontSize: '0.7rem', color: '#fcd34d' }}>Use 'Ghosting Rescue' script.</div>
-                                    </div>
-                                  </div>
-                                )}
-
-                              </div>
-
-                              {/* Google Contact Sync Button */}
-                              <button
-                                onClick={() => handleGoogleSync(activeLead, guidance)}
-                                disabled={syncedContacts.has(activeLead.id)}
-                                className="glass-panel"
-                                style={{
-                                  width: '100%',
-                                  padding: '0.6rem',
-                                  marginBottom: '1rem',
-                                  background: syncedContacts.has(activeLead.id) ? 'rgba(16, 185, 129, 0.1)' : 'rgba(66, 133, 244, 0.1)',
-                                  border: `1px solid ${syncedContacts.has(activeLead.id) ? 'var(--success)' : '#4285F4'}`,
-                                  borderRadius: '8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '8px',
-                                  cursor: syncedContacts.has(activeLead.id) ? 'default' : 'pointer',
-                                  opacity: syncedContacts.has(activeLead.id) ? 0.8 : 1
-                                }}
-                              >
-                                <span style={{ fontSize: '1rem' }}>{syncedContacts.has(activeLead.id) ? '✅' : '👤'}</span>
-                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: syncedContacts.has(activeLead.id) ? 'var(--success)' : '#4285F4' }}>
-                                  {syncedContacts.has(activeLead.id) ? 'Saved to Google Contacts' : 'Sync to Google Contacts'}
-                                </span>
-                              </button>
-
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--glass-border)' }}>
-                                <div>
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Estimation</div>
-                                  <div style={{ fontSize: '1rem', color: 'var(--success)', fontWeight: 600 }}>
-                                    {guidance.estimatedValue || '—'}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>Closure Prob.</div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>{guidance.closureProbability}%</div>
-                                </div>
-                              </div>
-
-
-                              {/* CLIMATE INTELLIGENCE */}
-                              {guidance.climateStrategy && (
-                                <div className="glass-panel" style={{ padding: '0.8rem', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', marginBottom: '1.2rem' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span>{guidance.climateStrategy.label.split(' ')[0]}</span>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8' }}>{guidance.climateStrategy.label}</div>
-                                  </div>
-                                  <div style={{ fontSize: '0.7rem', color: '#bae6fd', marginBottom: '6px' }}>
-                                    "{guidance.climateStrategy.advice}"
-                                  </div>
-                                  <div style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
-                                    Suggested: <strong style={{ color: 'white' }}>{guidance.climateStrategy.productFocus}</strong>
+                                    )}
+                                    {guidance.ghostingStatus !== 'Safe' && (
+                                      <div style={{ padding: '8px 12px', background: 'rgba(245, 158, 11, 0.1)', borderLeft: '3px solid var(--warning)', borderRadius: '4px', fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600 }}>
+                                        👻 GHOSTING RISK: {guidance.ghostingStatus.toUpperCase()}
+                                      </div>
+                                    )}
+                                    {guidance.objectionDetected && guidance.objectionDetected !== 'None' && (
+                                      <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.1)', borderLeft: '3px solid #3b82f6', borderRadius: '4px', fontSize: '0.75rem', color: '#3b82f6', fontWeight: 600 }}>
+                                        🛡️ OBJECTION: {guidance.objectionDetected.toUpperCase()}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}
 
-                              {/* GHOSTING RISK & RESCUE MODE */}
-                              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--glass-border)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Ghosting Risk</span>
-                                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: (guidance.ghostingProbability || 0) > 60 ? 'var(--error)' : 'var(--success)' }}>
-                                    {(guidance.ghostingProbability || 0) > 60 ? 'CRITICAL - RESCUE MODE' : ((guidance.ghostingProbability || 0) > 30 ? 'MEDIUM' : 'LOW')}
-                                  </span>
+                              {/* AI COPILOT ACTIONS */}
+                              <div style={{ marginBottom: '1.5rem' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '1rem', letterSpacing: '0.5px' }}>
+                                  AI SUGGESTED ACTIONS
                                 </div>
-                                <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{
-                                    height: '100%',
-                                    width: `${guidance.ghostingProbability || 0}%`,
-                                    background: (guidance.ghostingProbability || 0) > 60 ? 'var(--error)' : ((guidance.ghostingProbability || 0) > 30 ? 'var(--warning)' : 'var(--success)'),
-                                    boxShadow: (guidance.ghostingProbability || 0) > 60 ? '0 0 10px var(--error)' : 'none',
-                                    transition: 'width 0.5s ease-in-out'
-                                  }} />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* AI COPILOT ACTIONS */}
-                            <div style={{ marginBottom: '2rem' }}>
-                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '1rem', letterSpacing: '0.5px' }}>
-                                AI COPILOT ACTIONS
-                              </div>
-                              {guidance.suggestions.slice(0, 4).map((action: any, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className={styles.suggestionBtn}
-                                  onClick={() => handleAction(action)}
-                                  style={{ position: 'relative', marginBottom: '8px' }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>{action.label}</span>
-                                    {action.actionType === 'custom_reply' && <span style={{ fontSize: '0.65rem', background: 'var(--primary)', color: 'white', padding: '1px 6px', borderRadius: '4px' }}>DRAFT</span>}
-                                  </div>
-                                  {action.description && (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{action.description}</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-
-
-                            {/* Tools Section - Redesigned 2-Column Layout */}
-                            <div style={{ marginTop: '2rem', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '1rem', paddingLeft: '4px' }}>
-                                SALES TOOLS
-                              </div>
-
-                              <div style={{ display: 'flex', gap: '1rem', height: '500px' }}>
-                                {/* Left Sidebar: Categories - PREMIUM LOOK */}
-                                <div style={{ width: '140px', display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', padding: '12px', borderRadius: '16px' }}>
-                                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingLeft: '4px' }}>Apps</div>
-                                  <button
-                                    onClick={() => setActiveTab('calculator')}
-                                    style={{
-                                      background: activeTab === 'calculator' ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'transparent',
-                                      color: activeTab === 'calculator' ? 'white' : 'var(--text-secondary)',
-                                      border: 'none',
-                                      borderRadius: '12px',
-                                      padding: '10px 12px',
-                                      fontSize: '0.8rem',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
-                                      display: 'flex', alignItems: 'center', gap: '8px',
-                                      marginBottom: '12px',
-                                      textAlign: 'left',
-                                      transition: 'all 0.3s ease',
-                                      boxShadow: activeTab === 'calculator' ? '0 4px 12px rgba(99, 102, 241, 0.4)' : 'none'
-                                    }}
-                                  >
-                                    <Icons.Calc /> Quote
-                                  </button>
-                                  <button
-                                    onClick={() => setActiveTab('add_product')}
-                                    style={{
-                                      background: activeTab === 'add_product' ? 'linear-gradient(135deg, var(--primary), #4f46e5)' : 'transparent',
-                                      color: activeTab === 'add_product' ? 'white' : 'var(--text-secondary)',
-                                      border: 'none',
-                                      borderRadius: '12px',
-                                      padding: '10px 12px',
-                                      fontSize: '0.8rem',
-                                      fontWeight: 600,
-                                      cursor: 'pointer',
-                                      display: 'flex', alignItems: 'center', gap: '8px',
-                                      marginBottom: '12px',
-                                      textAlign: 'left',
-                                      transition: 'all 0.3s ease',
-                                      boxShadow: activeTab === 'add_product' ? '0 4px 12px rgba(99, 102, 241, 0.4)' : 'none'
-                                    }}
-                                  >
-                                    <span style={{ fontSize: '1.2rem', lineHeight: 0 }}>+</span> Add Product
-                                  </button>
-
-                                  <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px', paddingLeft: '4px' }}>Materials</div>
-
-                                  {['All', 'brick', 'cladding', 'roofing', 'paver', 'jali', 'project'].map(tab => (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                  {guidance.suggestions.slice(0, 4).map((action: any, idx: number) => (
                                     <button
-                                      key={tab}
-                                      onClick={() => { setActiveTab(tab as any); setCalculatedQuote(null); }}
+                                      key={idx}
+                                      onClick={() => handleAction(action)}
                                       style={{
-                                        background: activeTab === tab ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                        color: activeTab === tab ? 'white' : 'var(--text-secondary)',
-                                        borderLeft: activeTab === tab ? '3px solid var(--primary)' : '3px solid transparent',
-                                        borderRadius: '0 8px 8px 0',
-                                        padding: '8px 12px',
-                                        fontSize: '0.8rem',
-                                        cursor: 'pointer',
-                                        textTransform: 'capitalize',
+                                        background: 'rgba(0,0,0,0.03)',
+                                        border: '1px solid var(--glass-border)',
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         textAlign: 'left',
-                                        transition: 'all 0.2s ease',
-                                        fontWeight: activeTab === tab ? 600 : 400
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
                                       }}
+                                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.06)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
                                     >
-                                      {tab === 'brick' ? '🧱 Bricks' :
-                                        tab === 'roofing' ? '🏠 Roofing' :
-                                          tab === 'paver' ? '🦶 Flooring' :
-                                            tab === 'jali' ? '🕸️ Jalis' :
-                                              tab === 'cladding' ? '🖼️ Cladding' :
-                                                tab === 'project' ? '📷 Projects' : 'All Products'}
+                                      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '2px' }}>{action.label}</div>
+                                      <div style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', lineHeight: 1.3 }}>{action.description || 'Smart action'}</div>
                                     </button>
                                   ))}
                                 </div>
-
-                                {/* Right Content Area - PREMIUM LOOK */}
-                                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', paddingBottom: '50px', WebkitOverflowScrolling: 'touch' }}>
-                                  {activeTab === 'add_product' ? (
-                                    <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'white' }}>Add New Product</h3>
-                                        <button
-                                          onClick={() => setActiveTab('All')}
-                                          style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}
-                                        >✕</button>
-                                      </div>
-
-                                      {/* Image Upload Area */}
-                                      <div
-                                        style={{
-                                          border: '2px dashed var(--glass-border)',
-                                          borderRadius: '12px',
-                                          padding: '2rem',
-                                          textAlign: 'center',
-                                          marginBottom: '1.5rem',
-                                          background: newProductForm.image ? `url(${newProductForm.image}) center/cover` : 'rgba(0,0,0,0.2)',
-                                          height: '180px',
-                                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                          cursor: 'pointer',
-                                          position: 'relative',
-                                          overflow: 'hidden'
-                                        }}
-                                        onClick={() => document.getElementById('product-image-upload')?.click()}
-                                        onDragOver={(e) => e.preventDefault()}
-                                        onDrop={(e) => {
-                                          e.preventDefault();
-                                          const file = e.dataTransfer.files[0];
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => setNewProductForm({ ...newProductForm, image: reader.result as string });
-                                            reader.readAsDataURL(file);
-                                          }
-                                        }}
-                                      >
-                                        <input
-                                          type="file"
-                                          id="product-image-upload"
-                                          hidden
-                                          accept="image/*"
-                                          onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                              const reader = new FileReader();
-                                              reader.onloadend = () => setNewProductForm({ ...newProductForm, image: reader.result as string });
-                                              reader.readAsDataURL(file);
-                                            }
-                                          }}
-                                        />
-                                        {!newProductForm.image && (
-                                          <>
-                                            <div style={{ fontSize: '2rem', marginBottom: '8px', opacity: 0.5 }}>📸</div>
-                                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Drag & Drop or Click to Upload</div>
-                                          </>
-                                        )}
-                                        {newProductForm.image && (
-                                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.75rem' }}>Click to change</div>
-                                        )}
-                                      </div>
-
-                                      {/* Form Fields */}
-                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                        <div>
-                                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Product Name</label>
-                                          <input
-                                            type="text"
-                                            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
-                                            value={newProductForm.name}
-                                            onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
-                                            placeholder="e.g. Vintage Brick"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Category</label>
-                                          <select
-                                            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
-                                            value={newProductForm.category}
-                                            onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                                          >
-                                            {['brick', 'cladding', 'roofing', 'paver', 'jali'].map(c => (
-                                              <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                                            ))}
-                                          </select>
-                                        </div>
-                                      </div>
-
-                                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                                        <div>
-                                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Purchase Rate (₹)</label>
-                                          <input
-                                            type="number"
-                                            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
-                                            value={newProductForm.purchaseRate}
-                                            onChange={e => setNewProductForm({ ...newProductForm, purchaseRate: e.target.value })}
-                                            placeholder="0.00"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Selling Rate (₹)</label>
-                                          <input
-                                            type="number"
-                                            style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
-                                            value={newProductForm.sellingRate}
-                                            onChange={e => setNewProductForm({ ...newProductForm, sellingRate: e.target.value })}
-                                            placeholder="0.00"
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Description / Specs (Size, etc.)</label>
-                                        <textarea
-                                          style={{ width: '100%', padding: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'white', outline: 'none', height: '80px', resize: 'none' }}
-                                          value={newProductForm.description}
-                                          onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                                          placeholder="Size: 9x4x3 inches..."
-                                        />
-                                      </div>
-
-                                      <button
-                                        className="btn-primary"
-                                        style={{ width: '100%', padding: '12px', background: 'var(--primary)', color: 'white', borderRadius: '8px', fontWeight: 600, border: 'none', cursor: 'pointer' }}
-                                        onClick={async () => {
-                                          if (!newProductForm.name || !newProductForm.sellingRate) return;
-
-                                          try {
-                                            const res = await fetch('/api/products', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({
-                                                name: newProductForm.name,
-                                                category: newProductForm.category,
-                                                image: newProductForm.image,
-                                                purchaseRate: newProductForm.purchaseRate,
-                                                sellingRate: newProductForm.sellingRate,
-                                                description: newProductForm.description
-                                              })
-                                            });
-
-                                            if (res.ok) {
-                                              const savedProduct = await res.json();
-                                              setAvailableProducts(prev => [savedProduct, ...prev]);
-                                              setActiveTab(newProductForm.category as any);
-                                              setNewProductForm({ name: '', category: 'brick', sellingRate: '', purchaseRate: '', dimensions: '', description: '', image: '' });
-                                              alert('Product Saved to Database!');
-                                            } else {
-                                              alert('Failed to save product');
-                                            }
-                                          } catch (e) {
-                                            console.error('Save error:', e);
-                                            alert('Error saving product');
-                                          }
-                                        }}
-                                      >
-                                        Save Product
-                                      </button>
-
-                                    </div>
-                                  ) : activeTab === 'calculator' ? (
-                                    <QuoteBuilder
-                                      products={availableProducts}
-                                      activeLead={activeLead}
-                                      onSendWhatsApp={async (to, msg, caption, mediaData, mime, filename) => {
-                                        if (!activeLead) return;
-                                        await handleSendWhatsAppMedia(to, msg, caption, mediaData, mime, filename);
-                                      }}
-                                    />
-                                  ) : activeTab === 'calc_old' ? (
-                                    <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '16px', background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)', border: '1px solid var(--glass-border)' }}>
-                                      <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Product</label>
-                                        <select
-                                          style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '10px', color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}
-                                          value={calculatorForm.product}
-                                          onChange={(e) => {
-                                            setCalculatorForm({ ...calculatorForm, product: e.target.value });
-                                            setCalculatedQuote(null);
-                                          }}
-                                        >
-                                          <option value="">Choose Product...</option>
-                                          {availableProducts.filter(p => p.category !== 'project').map((p: any) => (
-                                            <option key={p.id} value={p.name}>{p.name} (₹{p.sellingRate || 55})</option>
-                                          ))}
-                                        </select>
-                                      </div>
-
-                                      <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Area (Sq. Ft)</label>
-                                        <input
-                                          type="number"
-                                          placeholder="e.g. 1500"
-                                          style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', borderRadius: '10px', color: 'white', fontSize: '0.95rem', outline: 'none' }}
-                                          value={calculatorForm.area}
-                                          onChange={(e) => {
-                                            setCalculatorForm({ ...calculatorForm, area: e.target.value });
-                                            setCalculatedQuote(null);
-                                          }}
-                                        />
-                                      </div>
-
-                                      <button
-                                        className="btn-primary"
-                                        style={{ width: '100%', marginBottom: '1.5rem', padding: '12px', fontSize: '1rem', background: 'linear-gradient(90deg, var(--primary), #4f46e5)', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)' }}
-                                        onClick={() => {
-                                          if (!calculatorForm.product || !calculatorForm.area) return;
-                                          const area = parseFloat(calculatorForm.area);
-                                          if (isNaN(area)) return;
-                                          const product = availableProducts.find(p => p.name === calculatorForm.product) as any;
-                                          const price = product?.sellingRate || 55;
-                                          const unitsPerSqFt = 5;
-                                          const totalUnits = Math.ceil(area * unitsPerSqFt);
-                                          const totalCost = totalUnits * price;
-                                          setCalculatedQuote({ totalUnits, totalCost });
-                                        }}
-                                      >
-                                        Calculate Quote
-                                      </button>
-
-                                      {calculatedQuote && (
-                                        <div className="animate-fade-in" style={{ paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
-                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Units Required</span>
-                                            <span style={{ fontWeight: 600, color: 'white', fontSize: '1.1rem' }}>{calculatedQuote!.totalUnits.toLocaleString()}</span>
-                                          </div>
-                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Estimated Cost</span>
-                                            <span style={{ fontWeight: 700, color: 'var(--success)', fontSize: '1.4rem' }}>₹{calculatedQuote!.totalCost.toLocaleString()}</span>
-                                          </div>
-
-                                          {/* Actions */}
-                                          <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button
-                                              className="btn-ghost"
-                                              style={{ flex: 1, border: '1px solid var(--success)', color: 'var(--success)', padding: '10px' }}
-                                              onClick={() => {
-                                                if (!calculatedQuote) return;
-                                                const msg = `🧾 *Quick Estimate*\n\n**Product:** ${calculatorForm.product}\n**Area:** ${calculatorForm.area} sq.ft\n**Qty:** ${calculatedQuote!.totalUnits.toLocaleString()} units\n**Total:** ₹${calculatedQuote!.totalCost.toLocaleString()}`;
-                                                handleSendMessage(msg, 'text');
-                                              }}
-                                            >
-                                              Send via WhatsApp
-                                            </button>
-                                            <button
-                                              className="btn-primary"
-                                              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#334155' }}
-                                              onClick={() => setShowQuotePreview(true)}
-                                            >
-                                              📄 Preview PDF
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                      {/* Smart Quote Actions */}
-                                      <div style={{ display: 'flex', gap: '8px', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--glass-border)' }}>
-                                        <button
-                                          className="btn-ghost"
-                                          style={{ flex: 1, fontSize: '0.7rem', padding: '8px', border: '1px solid var(--glass-border)' }}
-                                          onClick={() => handleSendMessage('Could you please share the site location (Google Maps pin)? It helps us calculate transport.', 'text')}
-                                        >
-                                          📍 Ask Location
-                                        </button>
-                                        <button
-                                          className="btn-ghost"
-                                          style={{ flex: 1, fontSize: '0.7rem', padding: '8px', border: '1px solid var(--glass-border)' }}
-                                          onClick={() => handleSendMessage('To give an exact quote, what is the approximate area in sq. ft.?', 'text')}
-                                        >
-                                          📏 Ask Area
-                                        </button>
-                                        <button
-                                          className="btn-ghost"
-                                          style={{ flex: 1, fontSize: '0.7rem', padding: '8px', border: '1px solid var(--glass-border)' }}
-                                          onClick={() => handleSendMessage('Is this for a house elevation, boundary wall, or commercial project?', 'text')}
-                                        >
-                                          🏠 Ask Type
-                                        </button>
-                                      </div>
-
-                                    </div>
-                                  ) : (
-                                    <div className={styles.productGrid} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
-                                      {filteredProducts.map((p: any) => (
-                                        <div
-                                          key={p.id}
-                                          className={styles.productThumb}
-                                          title={p.name}
-                                          onClick={() => handleSendMessage(`[IMG: ${p.name}]`, 'image')}
-                                          style={{
-                                            height: '160px',
-                                            borderRadius: '12px',
-                                            overflow: 'hidden',
-                                            position: 'relative',
-                                            cursor: 'pointer',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            transition: 'transform 0.2s, box-shadow 0.2s',
-                                            boxShadow: '0 4px 6px rgba(0,0,0,0.2)'
-                                          }}
-                                          onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(-4px)';
-                                            e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.3)';
-                                          }}
-                                          onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
-                                          }}
-                                        >
-                                          {p.image.includes('placeholder') || p.image.includes('placehold.co') ? (
-                                            (() => {
-                                              // Extract color from placeholder URL if possible
-                                              const colorMatch = p.image.match(/placehold\.co\/\d+x\d+\/([a-fA-F0-9]+)/);
-                                              const baseColor = colorMatch ? `#${colorMatch[1]}` : '#334155';
-                                              return (
-                                                <div style={{
-                                                  width: '100%',
-                                                  height: '100%',
-                                                  background: `linear-gradient(135deg, ${baseColor} 0%, ${baseColor}80 100%)`,
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center'
-                                                }}>
-                                                  <span style={{ fontSize: '2rem', opacity: 0.2 }}>📦</span>
-                                                </div>
-                                              );
-                                            })()
-                                          ) : (
-                                            <img
-                                              src={p.image}
-                                              alt={p.name}
-                                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                              onError={(e) => {
-                                                e.currentTarget.onerror = null;
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.parentElement!.style.background = 'linear-gradient(45deg, #334155, #1e293b)';
-                                              }}
-                                            />
-                                          )}
-                                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px', background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            <div style={{ fontSize: '0.75rem', color: 'white', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                            {p.category !== 'project' && <div style={{ fontSize: '0.65rem', color: 'var(--success)' }}>₹{p.sellingRate || 55}/unit</div>}
-                                          </div>
-
-                                          {/* Hover Overlay Hint */}
-                                          <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '4px' }}>
-                                            <Icons.Send />
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
                               </div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="glass-panel" style={{ padding: '2rem', borderRadius: '16px' }}>
-                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💬</div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'white' }}>Select a lead to view intelligence</div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>AI analysis and sales tools will appear here</p>
-                    </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-tertiary)', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ opacity: 0.5 }}>
+                          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>💬</div>
+                          <p style={{ fontSize: '0.85rem' }}>Select a lead to unlock intelligence</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
-
-          {/* Modern Sample Request Modal */}
-          {
-            showSampleModal && (
-              <div style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
-              }}>
-                <div className="glass-panel animate-fade-in" style={{
-                  width: '420px', padding: '2rem', borderRadius: 'var(--radius-lg)',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', background: '#1e293b'
-                }}>
-                  <h3 style={{ color: 'var(--warning)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
-                    <Icons.Box /> Sample Request Detected
-                  </h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                    The client requested a sample. Please confirm the details below to initialize the dispatch workflow.
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Items</label>
-                      <input
-                        value={sampleForm.item}
-                        onChange={e => setSampleForm(p => ({ ...p, item: e.target.value }))}
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Delivery Address</label>
-                      <textarea
-                        rows={3}
-                        value={sampleForm.address}
-                        onChange={e => setSampleForm(p => ({ ...p, address: e.target.value }))}
-                        placeholder="Enter full address..."
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white', resize: 'none' }}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                      <button
-                        onClick={() => setShowSampleModal(false)}
-                        className="btn-ghost"
-                        style={{ flex: 1 }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleLogSample}
-                        className="btn-primary"
-                        style={{ flex: 1, background: 'var(--warning)', color: 'black' }}
-                      >
-                        Confirm & Log
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          }
-          {/* Formal Quotation Preview Modal */}
-          {
-            showQuotePreview && calculatedQuote && (
-              <div style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(3, 7, 18, 0.9)', backdropFilter: 'blur(12px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-                padding: '2rem'
-              }}>
-                <div className="animate-fade-in" style={{
-                  width: '100%', maxWidth: '800px', height: '90vh',
-                  background: 'white', color: '#1e293b', borderRadius: '4px',
-                  display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                }}>
-                  {/* Header / Actions */}
-                  <div style={{ padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, color: '#64748b' }}>Quotation Preview</span>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <button onClick={() => setShowQuotePreview(false)} style={{ padding: '6px 16px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#64748b', cursor: 'pointer' }}>Close</button>
-                      <button
-                        onClick={() => {
-                          if (!calculatedQuote) return;
-                          const msg = `📄 *Formal Quote Generated*\n\n**Quotation #**: UC-${Math.floor(Math.random() * 10000)}\n**Client**: ${activeLead.name}\n**Total Amount**: ₹${calculatedQuote.totalCost.toLocaleString()}\n\n_Check your email for the detailed PDF attachment._`;
-                          handleSendMessage(msg, 'text');
-                          setShowQuotePreview(false);
-                        }}
-                        style={{ padding: '6px 20px', background: '#4f46e5', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        Send to WhatsApp
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* DOCUMENT CONTENT (Scrollable) */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '4rem 5rem', background: 'white' }}>
-                    {/* Branding */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3rem' }}>
-                      <div>
-                        <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#4f46e5', letterSpacing: '-0.02em', margin: 0 }}>URBAN CLAY</h1>
-                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Exposed Brick & Teracotta Specialist</p>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 300, color: '#94a3b8', margin: 0 }}>QUOTATION</h2>
-                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b', marginTop: '8px' }}>#UC-{Math.floor(Date.now() / 1000000)}</p>
-                      </div>
-                    </div>
-
-                    {/* Addresses */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', marginBottom: '3rem' }}>
-                      <div>
-                        <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>From</h4>
-                        <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 4px 0' }}>Urban Clay Solutions</p>
-                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                          302, Diamond Arcade, MG Road<br />
-                          Bangalore, KA - 560001<br />
-                          GSTIN: 29ABCDE1234F1Z5
-                        </p>
-                      </div>
-                      <div>
-                        <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>Bill To</h4>
-                        <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 4px 0' }}>{activeLead.name}</p>
-                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                          {activeLead.phone || 'Contact pending'}<br />
-                          {guidance?.location || 'Location provided in chat'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Table */}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3rem' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ textAlign: 'left', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Item Description</th>
-                          <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Qty</th>
-                          <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Rate</th>
-                          <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>
-                            <strong>{calculatorForm.product}</strong><br />
-                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Premium exposed grade for exterior facade</span>
-                          </td>
-                          <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>{calculatedQuote!.totalUnits.toLocaleString()} Nos</td>
-                          <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>₹{(calculatedQuote!.totalCost / calculatedQuote!.totalUnits).toFixed(2)}</td>
-                          <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', fontWeight: 600, borderBottom: '1px solid #f1f5f9' }}>₹{calculatedQuote!.totalCost.toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Footer / Total */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4rem' }}>
-                      <div style={{ width: '250px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.9rem', color: '#64748b' }}>
-                          <span>Subtotal</span>
-                          <span>₹{calculatedQuote!.totalCost.toLocaleString()}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.9rem', color: '#64748b' }}>
-                          <span>GST (Included)</span>
-                          <span>₹0.00</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: '2px solid #4f46e5', marginTop: '8px' }}>
-                          <span style={{ fontWeight: 700, color: '#1e293b' }}>Grand Total</span>
-                          <span style={{ fontWeight: 800, color: '#4f46e5', fontSize: '1.2rem' }}>₹{calculatedQuote!.totalCost.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* T&C */}
-                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
-                      <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>Terms & Conditions</h4>
-                      <ul style={{ padding: 0, margin: 0, listStyle: 'none', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.6 }}>
-                        <li>• 50% Advance with Purchase Order, balance before dispatch.</li>
-                        <li>• Delivery within 7-10 working days from payment confirmation.</li>
-                        <li>• Material once sold cannot be returned or exchanged.</li>
-                        <li>• Transportation charges extra as per actuals.</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8' }}>
-                    This document is generated by Urban Clay Solutions.
-                  </div>
-                </div>
-              </div>
-            )
-          }
-          {/* Modal for Manual Lead Entry */}
-          {
-            showNewLeadModal && (
-              <div style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-              }}>
-                <div className="glass-panel animate-fade-in" style={{
-                  width: '400px', padding: '2rem', borderRadius: 'var(--radius-lg)',
-                  background: '#1e293b', border: '1px solid var(--glass-border)'
-                }}>
-                  <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', color: 'white' }}>Quick Add Lead</h3>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Client Name</label>
-                      <input
-                        autoFocus
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                        placeholder="e.g. John Doe"
-                        value={newLeadForm.name}
-                        onChange={e => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>WhatsApp Number</label>
-                      <input
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                        placeholder="e.g. 919876543210"
-                        value={newLeadForm.phone}
-                        onChange={e => setNewLeadForm({ ...newLeadForm, phone: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Product Interest</label>
-                      <input
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                        placeholder="e.g. Red Jali"
-                        value={newLeadForm.product}
-                        onChange={e => setNewLeadForm({ ...newLeadForm, product: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Initial Message</label>
-                      <textarea
-                        rows={3}
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white', fontFamily: 'inherit' }}
-                        placeholder="Paste details here..."
-                        value={newLeadForm.message}
-                        onChange={e => setNewLeadForm({ ...newLeadForm, message: e.target.value })}
-                      />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '1rem' }}>
-                      <button
-                        className="btn-ghost"
-                        style={{ flex: 1 }}
-                        onClick={() => setShowNewLeadModal(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="btn-primary"
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
-                        onClick={handleAddLead}
-                        disabled={isSaving}
-                      >
-                        {isSaving ? (
-                          <>
-                            <span className="spinner" style={{ width: '14px', height: '14px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                            Saving...
-                          </>
-                        ) : 'Save Lead'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          }
-
-          {/* --- QUALIFICATION MODAL --- */}
-          {
-            showQualificationModal && activeLead && (
-              <div style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-              }}>
-                <div className="glass-panel animate-fade-in" style={{
-                  width: '450px', padding: '2rem', borderRadius: 'var(--radius-lg)',
-                  background: '#1e293b', border: '1px solid var(--glass-border)'
-                }}>
-                  <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    🏗️ Lead Qualification
-                    <span style={{ fontSize: '0.7rem', background: '#3b82f6', padding: '2px 8px', borderRadius: '10px' }}>MANDATORY</span>
-                  </h3>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Project Location (City/Area)</label>
-                      <input
-                        autoFocus
-                        placeholder="e.g. Whitefield, Bangalore"
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                        defaultValue={activeLead.siteLocation}
-                        // In a real app, use controlled state. Here we use quick refs or just assume we save via API
-                        onChange={(e) => {
-                          // Quick local update for demo
-                          activeLead.siteLocation = e.target.value;
-                        }}
-                      />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Project Type</label>
-                        <select
-                          style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                          defaultValue={activeLead.projectType || 'villa'}
-                          onChange={(e) => activeLead.projectType = e.target.value as any}
-                        >
-                          <option value="villa">🏡 Luxury Villa</option>
-                          <option value="renovation">hammer Renovation</option>
-                          <option value="boundary">🧱 Boundary Wall</option>
-                          <option value="commercial">🏢 Commercial</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Est. Area (Sq.Ft)</label>
-                        <input
-                          type="number"
-                          placeholder="e.g. 2500"
-                          style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                          defaultValue={activeLead.estimatedArea}
-                          onChange={(e) => activeLead.estimatedArea = parseInt(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Start Date</label>
-                      <input
-                        type="date"
-                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
-                        defaultValue={activeLead.workStartDate}
-                        onChange={(e) => activeLead.workStartDate = e.target.value}
-                      />
-                    </div>
-
-                    <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-                      <button
-                        className="btn-primary"
-                        style={{ flex: 1, padding: '12px', background: '#10b981', color: 'white', fontWeight: 600, border: 'none', borderRadius: '8px' }}
-                        onClick={async () => {
-                          // Save logic
-                          const newStatus = (activeLead.siteLocation && activeLead.estimatedArea) ? 'qualified' : 'partially_qualified';
-
-                          // Update Local State (Optimistic)
-                          setLeads(prev => prev.map(l => l.id === activeLeadId ? {
-                            ...l,
-                            qualificationStatus: newStatus as any,
-                            siteLocation: activeLead.siteLocation,
-                            projectType: activeLead.projectType,
-                            estimatedArea: activeLead.estimatedArea,
-                            workStartDate: activeLead.workStartDate
-                          } : l));
-
-                          // Close Modal
-                          setShowQualificationModal(false);
-                          alert("Lead Qualified! Score updated.");
-
-                          // In real app, API call here: await fetch('/api/leads/update', ...)
-                        }}
-                      >
-                        Safe & Qualify
-                      </button>
-                      <button
-                        className="btn-ghost"
-                        style={{ flex: 1, border: '1px solid var(--glass-border)' }}
-                        onClick={() => setShowQualificationModal(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          }
-
         </div>
-      </Shell >
-    </div >
+
+        {/* Modern Sample Request Modal */}
+        {
+          showSampleModal && (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
+            }}>
+              <div className="glass-panel animate-fade-in" style={{
+                width: '420px', padding: '2rem', borderRadius: 'var(--radius-lg)',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', background: '#1e293b'
+              }}>
+                <h3 style={{ color: 'var(--warning)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
+                  <Icons.Box /> Sample Request Detected
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  The client requested a sample. Please confirm the details below to initialize the dispatch workflow.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Items</label>
+                    <input
+                      value={sampleForm.item}
+                      onChange={e => setSampleForm(p => ({ ...p, item: e.target.value }))}
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Delivery Address</label>
+                    <textarea
+                      rows={3}
+                      value={sampleForm.address}
+                      onChange={e => setSampleForm(p => ({ ...p, address: e.target.value }))}
+                      placeholder="Enter full address..."
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white', resize: 'none' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <button
+                      onClick={() => setShowSampleModal(false)}
+                      className="btn-ghost"
+                      style={{ flex: 1 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleLogSample}
+                      className="btn-primary"
+                      style={{ flex: 1, background: 'var(--warning)', color: 'black' }}
+                    >
+                      Confirm & Log
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        {/* Formal Quotation Preview Modal */}
+        {
+          showQuotePreview && calculatedQuote && (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(3, 7, 18, 0.9)', backdropFilter: 'blur(12px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+              padding: '2rem'
+            }}>
+              <div className="animate-fade-in" style={{
+                width: '100%', maxWidth: '800px', height: '90vh',
+                background: 'white', color: '#1e293b', borderRadius: '4px',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+              }}>
+                {/* Header / Actions */}
+                <div style={{ padding: '1rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, color: '#64748b' }}>Quotation Preview</span>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={() => setShowQuotePreview(false)} style={{ padding: '6px 16px', background: 'transparent', border: '1px solid #cbd5e1', borderRadius: '4px', color: '#64748b', cursor: 'pointer' }}>Close</button>
+                    <button
+                      onClick={() => {
+                        if (!calculatedQuote) return;
+                        const msg = `📄 *Formal Quote Generated*\n\n**Quotation #**: UC-${Math.floor(Math.random() * 10000)}\n**Client**: ${activeLead.name}\n**Total Amount**: ₹${calculatedQuote.totalCost.toLocaleString()}\n\n_Check your email for the detailed PDF attachment._`;
+                        handleSendMessage(msg, 'text');
+                        setShowQuotePreview(false);
+                      }}
+                      style={{ padding: '6px 20px', background: '#4f46e5', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Send to WhatsApp
+                    </button>
+                  </div>
+                </div>
+
+                {/* DOCUMENT CONTENT (Scrollable) */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '4rem 5rem', background: 'white' }}>
+                  {/* Branding */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3rem' }}>
+                    <div>
+                      <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#4f46e5', letterSpacing: '-0.02em', margin: 0 }}>URBAN CLAY</h1>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Exposed Brick & Teracotta Specialist</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 300, color: '#94a3b8', margin: 0 }}>QUOTATION</h2>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b', marginTop: '8px' }}>#UC-{Math.floor(Date.now() / 1000000)}</p>
+                    </div>
+                  </div>
+
+                  {/* Addresses */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', marginBottom: '3rem' }}>
+                    <div>
+                      <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>From</h4>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 4px 0' }}>Urban Clay Solutions</p>
+                      <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                        302, Diamond Arcade, MG Road<br />
+                        Bangalore, KA - 560001<br />
+                        GSTIN: 29ABCDE1234F1Z5
+                      </p>
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>Bill To</h4>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 700, margin: '0 0 4px 0' }}>{activeLead.name}</p>
+                      <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                        {activeLead.phone || 'Contact pending'}<br />
+                        {guidance?.location || 'Location provided in chat'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3rem' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc' }}>
+                        <th style={{ textAlign: 'left', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Item Description</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Qty</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Rate</th>
+                        <th style={{ textAlign: 'right', padding: '12px', fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', borderBottom: '2px solid #e2e8f0' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>
+                          <strong>{calculatorForm.product}</strong><br />
+                          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Premium exposed grade for exterior facade</span>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>{calculatedQuote!.totalUnits.toLocaleString()} Nos</td>
+                        <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', borderBottom: '1px solid #f1f5f9' }}>₹{(calculatedQuote!.totalCost / calculatedQuote!.totalUnits).toFixed(2)}</td>
+                        <td style={{ textAlign: 'right', padding: '16px 12px', fontSize: '0.9rem', fontWeight: 600, borderBottom: '1px solid #f1f5f9' }}>₹{calculatedQuote!.totalCost.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Footer / Total */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4rem' }}>
+                    <div style={{ width: '250px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.9rem', color: '#64748b' }}>
+                        <span>Subtotal</span>
+                        <span>₹{calculatedQuote!.totalCost.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '0.9rem', color: '#64748b' }}>
+                        <span>GST (Included)</span>
+                        <span>₹0.00</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: '2px solid #4f46e5', marginTop: '8px' }}>
+                        <span style={{ fontWeight: 700, color: '#1e293b' }}>Grand Total</span>
+                        <span style={{ fontWeight: 800, color: '#4f46e5', fontSize: '1.2rem' }}>₹{calculatedQuote!.totalCost.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* T&C */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.5rem' }}>
+                    <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '8px', letterSpacing: '0.05em' }}>Terms & Conditions</h4>
+                    <ul style={{ padding: 0, margin: 0, listStyle: 'none', fontSize: '0.75rem', color: '#64748b', lineHeight: 1.6 }}>
+                      <li>• 50% Advance with Purchase Order, balance before dispatch.</li>
+                      <li>• Delivery within 7-10 working days from payment confirmation.</li>
+                      <li>• Material once sold cannot be returned or exchanged.</li>
+                      <li>• Transportation charges extra as per actuals.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div style={{ padding: '1.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8' }}>
+                  This document is generated by Urban Clay Solutions.
+                </div>
+              </div>
+            </div>
+          )
+        }
+        {/* Modal for Manual Lead Entry */}
+        {
+          showNewLeadModal && (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+            }}>
+              <div className="glass-panel animate-fade-in" style={{
+                width: '400px', padding: '2rem', borderRadius: 'var(--radius-lg)',
+                background: '#1e293b', border: '1px solid var(--glass-border)'
+              }}>
+                <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', color: 'white' }}>Quick Add Lead</h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Client Name</label>
+                    <input
+                      autoFocus
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      placeholder="e.g. John Doe"
+                      value={newLeadForm.name}
+                      onChange={e => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>WhatsApp Number</label>
+                    <input
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      placeholder="e.g. 919876543210"
+                      value={newLeadForm.phone}
+                      onChange={e => setNewLeadForm({ ...newLeadForm, phone: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Product Interest</label>
+                    <input
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      placeholder="e.g. Red Jali"
+                      value={newLeadForm.product}
+                      onChange={e => setNewLeadForm({ ...newLeadForm, product: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Initial Message</label>
+                    <textarea
+                      rows={3}
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white', fontFamily: 'inherit' }}
+                      placeholder="Paste details here..."
+                      value={newLeadForm.message}
+                      onChange={e => setNewLeadForm({ ...newLeadForm, message: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '1rem' }}>
+                    <button
+                      className="btn-ghost"
+                      style={{ flex: 1 }}
+                      onClick={() => setShowNewLeadModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn-primary"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+                      onClick={handleAddLead}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <span className="spinner" style={{ width: '14px', height: '14px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                          Saving...
+                        </>
+                      ) : 'Save Lead'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        {/* --- QUALIFICATION MODAL --- */}
+        {
+          showQualificationModal && activeLead && (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+            }}>
+              <div className="glass-panel animate-fade-in" style={{
+                width: '450px', padding: '2rem', borderRadius: 'var(--radius-lg)',
+                background: '#1e293b', border: '1px solid var(--glass-border)'
+              }}>
+                <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  🏗️ Lead Qualification
+                  <span style={{ fontSize: '0.7rem', background: '#3b82f6', padding: '2px 8px', borderRadius: '10px' }}>MANDATORY</span>
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Project Location (City/Area)</label>
+                    <input
+                      autoFocus
+                      placeholder="e.g. Whitefield, Bangalore"
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      defaultValue={activeLead.siteLocation}
+                      // In a real app, use controlled state. Here we use quick refs or just assume we save via API
+                      onChange={(e) => {
+                        // Quick local update for demo
+                        activeLead.siteLocation = e.target.value;
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Project Type</label>
+                      <select
+                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                        defaultValue={activeLead.projectType || 'villa'}
+                        onChange={(e) => activeLead.projectType = e.target.value as any}
+                      >
+                        <option value="villa">🏡 Luxury Villa</option>
+                        <option value="renovation">hammer Renovation</option>
+                        <option value="boundary">🧱 Boundary Wall</option>
+                        <option value="commercial">🏢 Commercial</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Est. Area (Sq.Ft)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 2500"
+                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                        defaultValue={activeLead.estimatedArea}
+                        onChange={(e) => activeLead.estimatedArea = parseInt(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Start Date</label>
+                    <input
+                      type="date"
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      defaultValue={activeLead.workStartDate}
+                      onChange={(e) => activeLead.workStartDate = e.target.value}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
+                    <button
+                      className="btn-primary"
+                      style={{ flex: 1, padding: '12px', background: '#10b981', color: 'white', fontWeight: 600, border: 'none', borderRadius: '8px' }}
+                      onClick={async () => {
+                        // Save logic
+                        const newStatus = (activeLead.siteLocation && activeLead.estimatedArea) ? 'qualified' : 'partially_qualified';
+
+                        // Update Local State (Optimistic)
+                        setLeads(prev => prev.map(l => l.id === activeLeadId ? {
+                          ...l,
+                          qualificationStatus: newStatus as any,
+                          siteLocation: activeLead.siteLocation,
+                          projectType: activeLead.projectType,
+                          estimatedArea: activeLead.estimatedArea,
+                          workStartDate: activeLead.workStartDate
+                        } : l));
+
+                        // Close Modal
+                        setShowQualificationModal(false);
+                        alert("Lead Qualified! Score updated.");
+
+                        // In real app, API call here: await fetch('/api/leads/update', ...)
+                      }}
+                    >
+                      Safe & Qualify
+                    </button>
+                    <button
+                      className="btn-ghost"
+                      style={{ flex: 1, border: '1px solid var(--glass-border)' }}
+                      onClick={() => setShowQualificationModal(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+      </Shell>
+    </div>
   );
 }

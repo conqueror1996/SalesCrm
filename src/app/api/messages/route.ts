@@ -10,8 +10,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing leadId or content' }, { status: 400 });
         }
 
+        // First, verify the lead exists
+        const leadExists = await prisma.lead.findUnique({
+            where: { id: leadId }
+        });
+
+        if (!leadExists) {
+            return NextResponse.json({ error: `Lead with id ${leadId} not found` }, { status: 404 });
+        }
+
+        // Create message with a unique ID
         const message = await prisma.message.create({
             data: {
+                id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 leadId,
                 content,
                 sender: sender || 'salesrep',
