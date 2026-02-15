@@ -8,7 +8,7 @@ datasource db {
 }
 
 model Lead {
-  id         String    @id
+  id         String    @id @default(cuid())
   source     String    @default("IndiaMART")
   name       String
   phone      String?   @unique
@@ -20,12 +20,12 @@ model Lead {
   status     String    @default("NEW")
   receivedAt DateTime  @default(now())
   createdAt  DateTime  @default(now())
-  updatedAt  DateTime
-  Message    Message[]
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
 }
 
 model Message {
-  id                String   @id
+  id                String   @id @default(cuid())
   leadId            String
   content           String
   sender            String
@@ -36,7 +36,7 @@ model Message {
 }
 
 model Product {
-  id           String   @id
+  id           String   @id @default(cuid())
   name         String
   category     String
   image        String?
@@ -46,5 +46,5 @@ model Product {
   dimensions   String?
   stock        Int      @default(0)
   createdAt    DateTime @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime @updatedAt
 }
