@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lead } from '../../data/mockData';
-import { Phone, MessageCircle, AlertTriangle, TrendingUp, Clock } from 'lucide-react';
+import { Phone, MessageCircle, AlertTriangle, TrendingUp, Clock, MapPin } from 'lucide-react';
 import styles from './LeadCard.module.css';
 
 interface LeadCardProps {
@@ -15,6 +15,7 @@ export function LeadCard({ lead, isActive, onClick, onCall, onWhatsApp }: LeadCa
     // Helpers for styling based on status
     const isHot = lead.guidance?.leadScore === 'HOT 🔥';
     const isGhosting = lead.guidance?.ghostingStatus === 'Risk' || lead.guidance?.ghostingStatus === 'Ghosted';
+    const location = lead.guidance?.location;
 
     return (
         <div
@@ -25,9 +26,16 @@ export function LeadCard({ lead, isActive, onClick, onCall, onWhatsApp }: LeadCa
             <div className={styles.header}>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h3 className={styles.name}>{lead.name}</h3>
-                    <span className={styles.timestamp}>
-                        <Clock size={12} /> {new Date(lead.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                        <span className={styles.timestamp}>
+                            <Clock size={12} /> {new Date(lead.lastActive).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {location && (
+                            <span className={styles.timestamp} style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--clay-red)', fontWeight: 500 }}>
+                                <MapPin size={12} /> {location}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Value Badge */}

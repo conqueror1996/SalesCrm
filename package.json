@@ -11,7 +11,8 @@
     "postinstall": "prisma generate && PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome",
     "whatsapp": "ts-node --skip-project scripts/whatsapp-server.ts",
     "indiamart": "ts-node --skip-project scripts/indiamart-sync.ts",
-    "report": "ts-node --skip-project scripts/daily-report.ts"
+    "report": "ts-node --skip-project scripts/daily-report.ts",
+    "sync": "ts-node --skip-project scripts/sync-photos.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

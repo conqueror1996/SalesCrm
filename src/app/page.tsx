@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [showSampleModal, setShowSampleModal] = useState(false);
   const [showQuotePreview, setShowQuotePreview] = useState(false);
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [sampleForm, setSampleForm] = useState({ item: '', address: '', urgency: 'Normal' });
   const [newLeadForm, setNewLeadForm] = useState({ name: '', phone: '+91', product: '', message: '' });
   // Products State
@@ -261,7 +262,7 @@ export default function Dashboard() {
 
   // Poll Contact Status (Online/Offline)
   useEffect(() => {
-    if (!activeLead?.phone) {
+    if (!activeLead?.phone || !isWhatsappConnected) {
       setContactStatus(null);
       return;
     }
@@ -270,20 +271,22 @@ export default function Dashboard() {
       try {
         if (!activeLead?.phone) return;
         const cleanPhone = activeLead.phone.replace(/\D/g, '');
-        const res = await fetch(`${serverUrl}/contact/${cleanPhone}`);
+        const res = await fetch(`${serverUrl}/contact/${cleanPhone}`, {
+          headers: { 'x-api-secret': 'urbancrm_secret_key_123' } // Add Auth Header
+        });
         if (res.ok) {
           const data = await res.json();
           setContactStatus(data);
         }
       } catch (e) {
-        console.error('Status poll error', e);
+        // Silently fail if server is unreachable to avoid Next.js error overlays
       }
     };
 
     fetchStatus(); // Initial fetch
     const interval = setInterval(fetchStatus, 5000); // Poll every 5s
     return () => clearInterval(interval);
-  }, [activeLead?.phone, serverUrl]);
+  }, [activeLead?.phone, serverUrl, isWhatsappConnected]);
 
   // 2. NIGHT HUNTER: Auto-Responder Logic (DISABLED FOR HUMAN-LIKE BEHAVIOR)
   useEffect(() => {
@@ -634,6 +637,33 @@ export default function Dashboard() {
     handleSendMessage(`[SYSTEM] 📁 Chat history for ${activeLead.name} has been exported and saved.`, 'alert');
   };
 
+  const handleAddProduct = async () => {
+    if (!newProductForm.name || !newProductForm.sellingRate) {
+      alert("Please provide the Product Name and Price");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProductForm)
+      });
+      if (res.ok) {
+        const product = await res.json();
+        setAvailableProducts(prev => [...prev, product]);
+        setShowAddProductModal(false);
+        setNewProductForm({ name: '', category: 'brick', sellingRate: '', purchaseRate: '', dimensions: '', description: '', image: '' });
+      } else {
+        alert("Failed to save product.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error saving product.");
+    }
+    setIsSaving(false);
+  };
+
   const handleAddLead = async () => {
     console.log("Add Lead Clicked", newLeadForm);
     if (!newLeadForm.name || !newLeadForm.phone) {
@@ -931,7 +961,7 @@ export default function Dashboard() {
                 <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h2 style={{ fontSize: '1.5rem' }}>Product Catalog</h2>
                   <button
-                    onClick={() => { setActiveTab('add_product'); setCurrentView('crm'); }} // Redirect to CRM side-panel for add? Or implement here? 
+                    onClick={() => setShowAddProductModal(true)}
                     style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
                   >
                     + Add New Product
@@ -2204,6 +2234,101 @@ export default function Dashboard() {
                           Saving...
                         </>
                       ) : 'Save Lead'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        {/* --- ADD PRODUCT MODAL --- */}
+        {
+          showAddProductModal && (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(3, 7, 18, 0.8)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+            }}>
+              <div className="glass-panel animate-fade-in" style={{
+                width: '400px', padding: '2rem', borderRadius: 'var(--radius-lg)',
+                background: '#1e293b', border: '1px solid var(--glass-border)',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+              }}>
+                <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', color: 'white' }}>+ Add New Product</h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Product Name</label>
+                    <input
+                      autoFocus
+                      placeholder="e.g. Handmade Face Brick"
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      value={newProductForm.name}
+                      onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Category</label>
+                      <select
+                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                        value={newProductForm.category}
+                        onChange={e => setNewProductForm({ ...newProductForm, category: e.target.value })}
+                      >
+                        <option value="brick">Brick</option>
+                        <option value="cladding">Cladding</option>
+                        <option value="jali">Jali/Breezeblock</option>
+                        <option value="paver">Paver/Flooring</option>
+                        <option value="roofing">Roofing</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Price (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                        value={newProductForm.sellingRate}
+                        onChange={e => setNewProductForm({ ...newProductForm, sellingRate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Image Link (Optional)</label>
+                    <input
+                      placeholder="https://..."
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white' }}
+                      value={newProductForm.image}
+                      onChange={e => setNewProductForm({ ...newProductForm, image: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>Description (Optional)</label>
+                    <textarea
+                      rows={2}
+                      style={{ width: '100%', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'white', fontFamily: 'inherit' }}
+                      placeholder="Optional details..."
+                      value={newProductForm.description}
+                      onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '1rem' }}>
+                    <button
+                      className="btn-ghost"
+                      style={{ flex: 1 }}
+                      onClick={() => setShowAddProductModal(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn-primary"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+                      onClick={handleAddProduct}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Saving...' : 'Add Product'}
                     </button>
                   </div>
                 </div>

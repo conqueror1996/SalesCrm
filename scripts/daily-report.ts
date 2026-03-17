@@ -26,7 +26,7 @@ async function generateDailyReport() {
                 }
             },
             include: {
-                Message: {
+                messages: {
                     orderBy: { timestamp: 'desc' },
                     take: 1
                 }
@@ -36,7 +36,7 @@ async function generateDailyReport() {
         // 2. Fetch All active leads to see pipeline movements
         const allLeads = await prisma.lead.findMany({
             include: {
-                Message: {
+                messages: {
                     orderBy: { timestamp: 'desc' },
                     take: 1
                 }
@@ -50,7 +50,7 @@ async function generateDailyReport() {
 
         // 3. Analyze each lead
         for (const lead of allLeads) {
-            const lastMsg = lead.Message[0] || { content: '', timestamp: new Date() };
+            const lastMsg = lead.messages[0] || { content: '', timestamp: new Date() };
             // @ts-ignore - formatting message for analyzer
             const guidance = analyzeContext(lead as any, lastMsg as any);
 

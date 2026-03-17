@@ -487,7 +487,12 @@ function checkScheduledReports() {
 setInterval(checkScheduledReports, 60000);
 console.log(`📅 Scheduler active: Will send daily report at ${REPORTING_TIME} to ${process.env.BOSS_PHONE}`);
 
-const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-    console.log(`🚀 WhatsApp API Server running on port ${PORT}`);
+const PORT = Number(process.env.PORT || 3002);
+const server = app.listen(PORT, '0.0.0.0', () => {
+    const addr = server.address();
+    const bind = typeof addr === 'string' ? 'pipe ' + addr : 'port ' + addr?.port;
+    console.log(`🚀 WhatsApp API Server running on ${bind}`);
+});
+server.on('error', (e) => {
+    console.error('SERVER LISTEN ERROR:', e);
 });
